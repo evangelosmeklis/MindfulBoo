@@ -1,163 +1,131 @@
-# Mindful - Meditation App with Apple Watch Integration
+# 🧘‍♀️ MindfulBoo - iOS Meditation App
 
-A comprehensive meditation app for iPhone with Apple Watch companion that tracks heart rate and breathing patterns during meditation sessions.
+A comprehensive meditation app for iOS that integrates with Apple Watch for real-time health monitoring during meditation sessions.
 
-## Features
+## ✨ Features
 
-### 📱 iOS App
-- **Meditation Timer**: Customizable session durations (5-60 minutes)
-- **Beautiful UI**: Modern, calming interface with gradient animations
-- **Session History**: Track all your meditation sessions with detailed metrics
-- **Health Integration**: Automatic saving to Apple Health (Mindfulness category)
-- **Real-time Metrics**: Live heart rate and breathing rate display during sessions
-- **Charts & Analytics**: Detailed post-session analysis with interactive charts
+### 🎯 Core Meditation
+- **Customizable meditation timer** with audio feedback
+- **Progress tracking** with visual countdown
+- **Session history** with detailed statistics
+- **Completion streaks** and performance metrics
 
-### ⌚ Apple Watch App
-- **Workout Integration**: Uses HealthKit workout sessions for accurate tracking
-- **Continuous Heart Rate**: Monitors heart rate throughout meditation
-- **Breathing Rate Tracking**: Estimates breathing rate using Respiratory Sinus Arrhythmia (RSA)
-- **Independent Operation**: Can function without iPhone connection
-- **Auto-sync**: Data syncs seamlessly with iPhone when connected
+### 💓 Health Integration
+- **Real-time heart rate monitoring** from Apple Watch
+- **Respiratory rate tracking** during sessions
+- **HealthKit integration** for mindfulness session logging
+- **Health app synchronization** for comprehensive wellness tracking
 
-### 🏥 Health Data Integration
-- **HealthKit Permissions**: Reads heart rate, respiratory rate, writes mindfulness sessions
-- **Privacy First**: All data stays on device and syncs through HealthKit
-- **Medical Grade**: Uses Apple Watch's medical-grade sensors
+### 📊 Session Management
+- **Session history view** with statistics dashboard
+- **Individual session deletion** with swipe gestures
+- **Bulk deletion** with confirmation dialogs
+- **Session completion rates** and average duration tracking
 
-## Technical Implementation
+### 🎨 User Experience
+- **Modern SwiftUI interface** with smooth animations
+- **Custom app icon** (MindfulBoo branding)
+- **Intelligent permission handling** with robust HealthKit access
+- **Real-time monitoring display** with live health metrics
 
-### Breathing Rate Monitoring
-The app uses **Respiratory Sinus Arrhythmia (RSA)** to estimate breathing rate:
-
-- **How it works**: Heart rate naturally varies with breathing (increases on inhale, decreases on exhale)
-- **Data Source**: Analyzes heart rate variability patterns from Apple Watch
-- **Accuracy**: Most reliable during sleep/rest, may be less accurate during active meditation
-- **Availability**: Breathing rate data available when sufficient RSA signal is detected
-
-**Note**: While the Apple Watch excels at heart rate monitoring, breathing rate is estimated and may not always be available during meditation sessions. The app gracefully handles this by focusing primarily on heart rate data.
-
-### Architecture
-
-```
-MeditationApp/
-├── iOS App (iPhone)
-│   ├── MeditationAppApp.swift       # Main app entry point
-│   ├── ContentView.swift            # Primary UI
-│   ├── Managers/
-│   │   ├── HealthKitManager.swift   # HealthKit integration
-│   │   └── MeditationManager.swift  # Session management
-│   ├── Views/
-│   │   └── SessionHistoryView.swift # History & analytics
-│   └── Models/
-│       └── MeditationSession.swift  # Data models
-├── WatchKit App (Apple Watch)
-│   ├── WatchAppApp.swift           # Watch app entry
-│   ├── WatchContentView.swift      # Watch UI
-│   └── Managers/
-│       ├── WatchHealthManager.swift    # Watch HealthKit
-│       └── WatchWorkoutManager.swift   # Workout sessions
-└── Shared/
-    └── WatchConnectivityManager.swift # iPhone ↔ Watch sync
-```
-
-## Health Data Permissions
-
-The app requests the following HealthKit permissions:
-
-### Read Access
-- **Heart Rate**: Monitor during meditation sessions
-- **Respiratory Rate**: Track breathing patterns when available
-- **Mindful Sessions**: View existing meditation history
-
-### Write Access
-- **Mindful Sessions**: Save completed meditation sessions to Health app
-
-## Installation & Setup
+## 🛠️ Technical Details
 
 ### Requirements
-- iOS 17.0 or later
-- watchOS 10.0 or later
-- iPhone paired with Apple Watch
-- HealthKit availability
+- **iOS 15.0+**
+- **Xcode 14.0+**
+- **Apple Watch** (for heart rate monitoring)
+- **HealthKit permissions** for heart rate and mindfulness data
 
-### Setup Steps
-1. **Install**: Deploy app to iPhone and Apple Watch
-2. **Health Permissions**: Grant HealthKit permissions on first launch
-3. **Watch Pairing**: Ensure Apple Watch is properly paired
-4. **Start Meditating**: Choose duration and begin your first session
+### Architecture
+- **SwiftUI** for modern, declarative UI
+- **HealthKit** for health data integration
+- **Combine** for reactive data binding
+- **UserDefaults** for local session storage
+- **AVFoundation** for audio session management
 
-## Usage
+### Key Components
+- `MeditationManager` - Core session logic and health data coordination
+- `HealthKitManager` - HealthKit integration and Apple Watch monitoring
+- `MeditationSession` - Data model for session tracking
+- `SessionHistoryView` - Comprehensive session history with analytics
+
+## 🚀 Getting Started
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/evangelosmeklis/mindfulboo.git
+   cd mindfulboo
+   ```
+
+2. **Open in Xcode**
+   ```bash
+   open mediation.xcodeproj
+   ```
+
+3. **Configure permissions**
+   - The app will automatically request HealthKit permissions
+   - Grant access to Heart Rate and Mindfulness data
+   - Ensure Apple Watch is paired for monitoring features
+
+4. **Build and run**
+   - Select your target device
+   - Build and install the app
+   - Start your first meditation session!
+
+## 📱 Usage
 
 ### Starting a Session
-1. **Choose Duration**: Select from 5-60 minutes
-2. **Health Check**: Ensure HealthKit permissions are granted
-3. **Start**: Tap "Start Meditation" button
-4. **Watch Sync**: Watch automatically begins workout session
+1. Set your desired meditation duration
+2. Tap "Start Meditation" 
+3. Apple Watch will automatically begin monitoring
+4. Follow the timer and focus on your breathing
 
-### During Meditation
-- **Progress Circle**: Visual progress indicator
-- **Live Metrics**: Current heart rate and breathing rate (when available)
-- **Time Remaining**: Countdown timer
-- **Apple Watch**: Independent tracking with pause/stop controls
+### Viewing History
+1. Navigate to "Session History"
+2. View your meditation statistics
+3. Review individual sessions
+4. Delete sessions as needed
 
-### After Session
-- **Automatic Save**: Session saved to local storage and HealthKit
-- **Completion Sound**: Gentle alert when session ends
-- **View Details**: Tap session in history for detailed analytics
-- **Charts**: Heart rate and breathing rate trends over time
+### Health Integration
+- Sessions automatically sync to Health app
+- Heart rate data appears in real-time during sessions
+- Respiratory rate is tracked when available
+- All data respects your privacy settings
 
-## Data & Privacy
+## 🔧 Development
 
-- **Local Storage**: All data stored locally on device
-- **HealthKit Integration**: Optional sync with Apple Health app
-- **No Cloud Sync**: Data never leaves your devices
-- **User Control**: Full control over data sharing and permissions
+### Project Structure
+```
+mediation/
+├── mediation/
+│   ├── ContentView.swift          # Main meditation interface
+│   ├── MeditationAppApp.swift     # App entry point
+│   ├── Managers/
+│   │   ├── HealthKitManager.swift     # Health integration
+│   │   └── MeditationManager.swift    # Session management
+│   ├── Models/
+│   │   └── MeditationSession.swift    # Session data model
+│   ├── Views/
+│   │   └── SessionHistoryView.swift   # History interface
+│   └── Assets.xcassets/           # App icons and assets
+├── mediationTests/               # Unit tests
+└── mediationUITests/            # UI tests
+```
 
-## Limitations & Considerations
+### Key Features Implementation
+- **Robust permission handling** - Works even when iOS reports incorrect HealthKit status
+- **Real-time monitoring** - Uses HKAnchoredObjectQuery for live health data
+- **Smart authorization** - Tests actual data access beyond reported permissions
+- **Modern UI patterns** - SwiftUI with Combine for reactive updates
 
-### Breathing Rate Monitoring
-- **Best During**: Sleep, rest, minimal movement
-- **Limited During**: Active meditation, movement, talking
-- **Fallback**: App focuses on heart rate when breathing data unavailable
-- **Research Based**: Uses established RSA methodology from medical literature
+## 🤝 Contributing
 
-### Apple Watch Requirements
-- **Workout Permission**: Requires HealthKit workout permissions
-- **Placement**: Proper watch fit essential for accurate readings
-- **Battery**: Extended sessions may impact watch battery life
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Future Enhancements
+## 📄 License
 
-- **Guided Meditations**: Audio guidance during sessions
-- **Breathing Exercises**: Structured breathing pattern training
-- **Sleep Integration**: Pre-sleep meditation recommendations
-- **Advanced Analytics**: Weekly/monthly trend analysis
-- **Mindfulness Reminders**: Intelligent notification system
-
-## Contributing
-
-This app demonstrates best practices for:
-- HealthKit integration
-- Apple Watch workout sessions
-- Watch Connectivity framework
-- SwiftUI health apps
-- Real-time biometric monitoring
-
-## Health Disclaimer
-
-This app is for wellness and meditation purposes only. It is not intended for medical diagnosis or treatment. Consult healthcare professionals for medical advice.
-
-## Technical Notes
-
-### Respiratory Rate Research
-Based on extensive research including:
-- Apple's official HealthKit documentation
-- Medical research on Respiratory Sinus Arrhythmia
-- Apple Watch capabilities and limitations
-- Clinical studies on breathing rate monitoring
-
-The implementation provides breathing rate data when technically feasible while maintaining transparency about limitations.
+This project is available for personal and educational use.
 
 ---
 
-*Built with ❤️ for mindfulness and wellness* 
+**MindfulBoo** - Mindful meditation with intelligent health monitoring 🧘‍♀️💓 
