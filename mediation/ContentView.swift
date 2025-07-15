@@ -87,17 +87,34 @@ struct ContentView: View {
                             .padding(.top, 8)
                         }
                         
-                        // Apple Watch availability
-                        if HKHealthStore.isHealthDataAvailable() {
-                            HStack {
-                                Image(systemName: "applewatch")
+                        // Heart rate monitoring status
+                        HStack {
+                            Image(systemName: healthStore.canMonitorHeartRate ? "applewatch" : "applewatch.slash")
+                                .foregroundColor(healthStore.canMonitorHeartRate ? .blue : .orange)
+                                .font(.caption)
+                            Text(healthStore.heartRatePermissionStatus)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                healthStore.forceRefreshPermissions()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.caption2)
                                     .foregroundColor(.blue)
-                                    .font(.caption)
-                                Text("Heart rate monitoring available")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
                             }
-                            .padding(.top, 4)
+                        }
+                        .padding(.top, 4)
+                        .onTapGesture {
+                            if !healthStore.canMonitorHeartRate {
+                                healthStore.retryHeartRatePermission()
+                            }
+                        }
+                        .onLongPressGesture {
+                            // Debug: Long press to show detailed permissions
+                            healthStore.debugPermissions()
                         }
                     }
                 }
@@ -167,6 +184,7 @@ struct ContentView: View {
 
 struct ActiveSessionView: View {
     @EnvironmentObject var meditationManager: MeditationManager
+    @EnvironmentObject var healthStore: HealthKitManager
     
     var body: some View {
         VStack(spacing: 30) {
@@ -228,6 +246,21 @@ struct ActiveSessionView: View {
                                 .foregroundColor(.secondary)
                         }
                         
+                        if let respiratoryRate = meditationManager.currentRespiratoryRate {
+                            VStack {
+                                Image(systemName: "lungs.fill")
+                                    .foregroundColor(.blue)
+                                    .font(.title2)
+                                Text("\(Int(respiratoryRate))")
+                                    .font(.title)
+                                    .fontWeight(.bold)
+                                    .monospacedDigit()
+                                Text("BR/MIN")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
                         VStack {
                             Image(systemName: "waveform.path.ecg")
                                 .foregroundColor(.green)
@@ -249,20 +282,38 @@ struct ActiveSessionView: View {
                 )
                 .animation(.easeInOut(duration: 0.3), value: heartRate)
             } else if meditationManager.isSessionActive {
-                // Apple Watch connection status
+                // Heart rate monitoring status during session
                 VStack {
                     HStack {
-                        Image(systemName: "applewatch")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                        Text("Starting heart rate monitoring...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        if healthStore.canMonitorHeartRate {
+                            Image(systemName: "applewatch")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            Text("Starting heart rate monitoring...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Image(systemName: "applewatch.slash")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            Text("Heart rate monitoring unavailable")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                        .scaleEffect(0.8)
+                    if healthStore.canMonitorHeartRate {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                            .scaleEffect(0.8)
+                    } else {
+                        Button("Enable Permission") {
+                            healthStore.retryHeartRatePermission()
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(.top, 4)
+                    }
                 }
                 .padding()
                 .background(

@@ -10,7 +10,9 @@ class MeditationManager: ObservableObject {
     @Published var sessions: [MeditationSession] = []
     @Published var showSessionSavedMessage = false
     @Published var currentHeartRate: Double?
+    @Published var currentRespiratoryRate: Double?
     @Published var isHeartRateMonitoring = false
+    @Published var isRespiratoryRateMonitoring = false
     
     private var timer: Timer?
     private var sessionDuration: TimeInterval = 0
@@ -33,12 +35,18 @@ class MeditationManager: ObservableObject {
     func setHealthManager(_ healthManager: HealthKitManager) {
         self.healthManager = healthManager
         
-        // Bind heart rate data from HealthKit manager
+        // Bind heart rate and respiratory rate data from HealthKit manager
         healthManager.$currentHeartRate
             .assign(to: &$currentHeartRate)
         
+        healthManager.$currentRespiratoryRate
+            .assign(to: &$currentRespiratoryRate)
+        
         healthManager.$isMonitoringHeartRate
             .assign(to: &$isHeartRateMonitoring)
+        
+        healthManager.$isMonitoringRespiratoryRate
+            .assign(to: &$isRespiratoryRateMonitoring)
     }
     
     private func setupAudioSession() {

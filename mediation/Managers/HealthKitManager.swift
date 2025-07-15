@@ -7,9 +7,16 @@ class HealthKitManager: ObservableObject {
     @Published var isAuthorized = false
     @Published var lastError: Error?
     @Published var currentHeartRate: Double?
+    @Published var currentRespiratoryRate: Double?
     @Published var isMonitoringHeartRate = false
+    @Published var isMonitoringRespiratoryRate = false
+    
+    // Track actual data access test results
+    private var heartRateAccessWorks = false
+    private var respiratoryRateAccessWorks = false
     
     private var heartRateQuery: HKAnchoredObjectQuery?
+    private var respiratoryRateQuery: HKAnchoredObjectQuery?
     
     private let typesToRead: Set<HKSampleType> = [
         HKQuantityType(.heartRate),
@@ -24,6 +31,90 @@ class HealthKitManager: ObservableObject {
     
     init() {
         checkAuthorizationStatus()
+    }
+    
+    func forceRefreshPermissions() {
+        print("🔄 Force refreshing HealthKit permissions...")
+        
+        // Add a small delay to ensure iOS has updated the permissions
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.checkAuthorizationStatus()
+            
+            // Also try to query samples to test actual access
+            self.testHeartRateAccess()
+            self.testRespiratoryRateAccess()
+        }
+    }
+    
+    private func testHeartRateAccess() {
+        let heartRateType = HKQuantityType(.heartRate)
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: nil,
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+        ) { [weak self] _, samples, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Heart rate test query failed: \(error.localizedDescription)")
+                    self?.heartRateAccessWorks = false
+                } else {
+                    print("✅ Heart rate test query succeeded - access is working")
+                    print("   Found \(samples?.count ?? 0) recent heart rate samples")
+                    self?.heartRateAccessWorks = true
+                }
+                // Recheck authorization after test completes
+                self?.updateAuthorizationStatus()
+            }
+        }
+        
+        healthStore.execute(query)
+    }
+    
+    private func testRespiratoryRateAccess() {
+        let respiratoryRateType = HKQuantityType(.respiratoryRate)
+        let query = HKSampleQuery(
+            sampleType: respiratoryRateType,
+            predicate: nil,
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+        ) { [weak self] _, samples, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Respiratory rate test query failed: \(error.localizedDescription)")
+                    self?.respiratoryRateAccessWorks = false
+                } else {
+                    print("✅ Respiratory rate test query succeeded - access is working")
+                    print("   Found \(samples?.count ?? 0) recent respiratory rate samples")
+                    self?.respiratoryRateAccessWorks = true
+                }
+                // Recheck authorization after test completes
+                self?.updateAuthorizationStatus()
+            }
+        }
+        
+        healthStore.execute(query)
+    }
+    
+    private func updateAuthorizationStatus() {
+        let mindfulSessionStatus = healthStore.authorizationStatus(for: HKCategoryType(.mindfulSession))
+        
+        // For this app to work properly, we need mindful session write access and working data access
+        let mindfulOK = mindfulSessionStatus != .notDetermined
+        // Use actual test results instead of unreliable authorization status
+        let heartRateOK = heartRateAccessWorks
+        
+        isAuthorized = mindfulOK && heartRateOK
+        
+        print("🎯 Updated Authorization Status (using test results):")
+        print("   • Mindful sessions: \(authStatusDescription(mindfulSessionStatus)) (\(mindfulOK ? "✅" : "❌"))")
+        print("   • Heart rate access test: \(heartRateOK ? "✅ WORKING" : "❌ FAILED")")
+        print("   • Respiratory rate access test: \(respiratoryRateAccessWorks ? "✅ WORKING" : "❌ FAILED")")
+        print("   • Overall authorized: \(isAuthorized ? "✅ YES" : "❌ NO")")
+        
+        if isAuthorized {
+            print("🚀 Ready to start monitoring!")
+        }
     }
     
     func requestPermissions() {
@@ -211,28 +302,53 @@ class HealthKitManager: ObservableObject {
     /// when the session completes, which signals paired Apple Watches to begin monitoring.
     func startWorkoutSession() {
         guard HKHealthStore.isHealthDataAvailable() else {
-            print("HealthKit not available")
+            print("❌ HealthKit not available on this device")
             return
         }
         
         // Check authorization for heart rate (this is what we really need)
         let heartRateAuthStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
-        guard heartRateAuthStatus == .sharingAuthorized else {
-            print("Heart rate authorization not granted")
+        
+        switch heartRateAuthStatus {
+        case .notDetermined:
+            print("💡 Heart rate permission not yet requested - requesting now...")
+            requestPermissions()
+            return
+            
+        case .sharingDenied:
+            print("⚠️  Heart rate permission shows as denied, but checking if data access actually works...")
+            // If our test query succeeded, trust that over the reported status
+            if heartRateAccessWorks {
+                print("✅ Heart rate data access test passed - proceeding with monitoring")
+                break
+            } else {
+                print("❌ Heart rate permission denied and data access test failed")
+                print("   Please enable Heart Rate permission in Settings > Privacy & Security > Health > [App Name]")
+                return
+            }
+            
+        case .sharingAuthorized:
+            print("✅ Heart rate permission granted - starting monitoring")
+            break
+            
+        @unknown default:
+            print("⚠️ Unknown heart rate authorization status")
             return
         }
         
-        // Start heart rate monitoring immediately
+        // Start heart rate and respiratory rate monitoring immediately
         startHeartRateMonitoring()
+        startRespiratoryRateMonitoring()
         
-        print("✅ Started heart rate monitoring - Apple Watch should begin tracking")
+        print("🔄 Started heart rate & respiratory rate monitoring - Apple Watch should begin tracking")
     }
     
     func stopWorkoutSession() {
-        // Stop heart rate monitoring
+        // Stop heart rate and respiratory rate monitoring
         stopHeartRateMonitoring()
+        stopRespiratoryRateMonitoring()
         
-        print("✅ Stopped heart rate monitoring")
+        print("✅ Stopped heart rate & respiratory rate monitoring")
     }
     
     // MARK: - Workout Record Creation
@@ -335,17 +451,168 @@ class HealthKitManager: ObservableObject {
         }
     }
     
+    // MARK: - Live Respiratory Rate Monitoring
+    
+    private func startRespiratoryRateMonitoring() {
+        guard respiratoryRateQuery == nil else { return }
+        
+        let respiratoryRateType = HKQuantityType(.respiratoryRate)
+        let respiratoryRateUnit = HKUnit.count().unitDivided(by: .minute())
+        
+        // Create anchored query for real-time respiratory rate updates
+        respiratoryRateQuery = HKAnchoredObjectQuery(
+            type: respiratoryRateType,
+            predicate: nil,
+            anchor: nil,
+            limit: HKObjectQueryNoLimit
+        ) { [weak self] query, samples, deletedObjects, anchor, error in
+            
+            guard let samples = samples as? [HKQuantitySample] else { return }
+            
+            // Get the most recent respiratory rate sample
+            if let latestSample = samples.last {
+                let respiratoryRate = latestSample.quantity.doubleValue(for: respiratoryRateUnit)
+                
+                DispatchQueue.main.async {
+                    self?.currentRespiratoryRate = respiratoryRate
+                    self?.isMonitoringRespiratoryRate = true
+                    print("🫁 Live respiratory rate: \(Int(respiratoryRate)) breaths/min")
+                }
+            }
+        }
+        
+        // Set up update handler for continuous monitoring
+        respiratoryRateQuery?.updateHandler = { [weak self] query, samples, deletedObjects, anchor, error in
+            guard let samples = samples as? [HKQuantitySample] else { return }
+            
+            if let latestSample = samples.last {
+                let respiratoryRate = latestSample.quantity.doubleValue(for: respiratoryRateUnit)
+                
+                DispatchQueue.main.async {
+                    self?.currentRespiratoryRate = respiratoryRate
+                    print("🫁 Updated respiratory rate: \(Int(respiratoryRate)) breaths/min")
+                }
+            }
+        }
+        
+        // Execute the query
+        if let query = respiratoryRateQuery {
+            healthStore.execute(query)
+            print("🔄 Started live respiratory rate monitoring")
+        }
+    }
+    
+    private func stopRespiratoryRateMonitoring() {
+        if let query = respiratoryRateQuery {
+            healthStore.stop(query)
+            respiratoryRateQuery = nil
+            print("⏹️ Stopped respiratory rate monitoring")
+        }
+    }
+    
     private func checkAuthorizationStatus() {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard HKHealthStore.isHealthDataAvailable() else { 
+            print("❌ HealthKit not available on this device")
+            return 
+        }
         
         let mindfulSessionStatus = healthStore.authorizationStatus(for: HKCategoryType(.mindfulSession))
         let workoutStatus = healthStore.authorizationStatus(for: HKObjectType.workoutType())
+        let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
+        let respiratoryRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.respiratoryRate))
         
-        // For writing mindful sessions, we need sharingAuthorized or sharingDenied (but not notDetermined)
-        isAuthorized = mindfulSessionStatus != .notDetermined && workoutStatus != .notDetermined
+        // Debug: Print raw values
+        print("🔍 Raw Authorization Values:")
+        print("   • Heart rate raw value: \(heartRateStatus.rawValue)")
+        print("   • Respiratory rate raw value: \(respiratoryRateStatus.rawValue)")
+        print("   • Mindful sessions raw value: \(mindfulSessionStatus.rawValue)")
+        print("   • Workout raw value: \(workoutStatus.rawValue)")
         
-        print("HealthKit mindful session authorization status: \(mindfulSessionStatus.rawValue)")
-        print("HealthKit workout authorization status: \(workoutStatus.rawValue)")
+        // NOTE: These reported statuses are often unreliable, actual authorization determined by test queries
+        
+        print("📊 HealthKit Authorization Status (reported by iOS):")
+        print("   • Mindful sessions: \(authStatusDescription(mindfulSessionStatus))")
+        print("   • Heart rate: \(authStatusDescription(heartRateStatus))")
+        print("   • Respiratory rate: \(authStatusDescription(respiratoryRateStatus))")
+        print("   • Workout: \(authStatusDescription(workoutStatus))")
+        print("")
+        print("⚠️  Note: iOS often reports incorrect status. Testing actual data access...")
+    }
+    
+    func debugPermissions() {
+        print("\n🐛 DEBUG: Full Permission Analysis")
+        print("=======================================")
+        
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("❌ HealthKit not available")
+            return
+        }
+        
+        print("Raw value meanings: 0=NotDetermined, 1=Denied, 2=Authorized")
+        print("")
+        
+        // Check all relevant types
+        let types: [(String, HKObjectType)] = [
+            ("Heart Rate", HKQuantityType(.heartRate)),
+            ("Respiratory Rate", HKQuantityType(.respiratoryRate)),
+            ("Mindful Session", HKCategoryType(.mindfulSession)),
+            ("Workout", HKObjectType.workoutType())
+        ]
+        
+        for (name, type) in types {
+            let status = healthStore.authorizationStatus(for: type)
+            let statusName = authStatusDescription(status)
+            let emoji = status == .sharingAuthorized ? "✅" : (status == .sharingDenied ? "❌" : "⚠️")
+            print("   \(emoji) \(name): \(statusName) (raw: \(status.rawValue))")
+        }
+        
+        print("")
+        print("Expected for app to work:")
+        print("   • Heart Rate should be: Authorized (raw: 2)")
+        print("   • Mindful Session should be: Authorized (raw: 2)")
+        print("=======================================\n")
+    }
+    
+    private func authStatusDescription(_ status: HKAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined:
+            return "Not Determined"
+        case .sharingDenied:
+            return "Denied"
+        case .sharingAuthorized:
+            return "Authorized"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+    
+    // MARK: - Permission Status Helpers
+    
+    var canMonitorHeartRate: Bool {
+        guard HKHealthStore.isHealthDataAvailable() else { return false }
+        let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
+        return heartRateStatus == .sharingAuthorized
+    }
+    
+    var heartRatePermissionStatus: String {
+        guard HKHealthStore.isHealthDataAvailable() else { return "HealthKit not available" }
+        let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
+        
+        switch heartRateStatus {
+        case .notDetermined:
+            return "Tap to enable heart rate monitoring"
+        case .sharingDenied:
+            return "Heart rate access denied - check Settings"
+        case .sharingAuthorized:
+            return "Heart rate monitoring ready"
+        @unknown default:
+            return "Unknown permission status"
+        }
+    }
+    
+    func retryHeartRatePermission() {
+        print("🔄 Retrying heart rate permission request...")
+        requestPermissions()
     }
     
     // MARK: - Apple Watch Detection
