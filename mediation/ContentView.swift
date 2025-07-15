@@ -161,38 +161,6 @@ struct ActiveSessionView: View {
                 }
             }
             
-            // Current metrics from watch
-            if let heartRate = meditationManager.currentHeartRate {
-                HStack(spacing: 30) {
-                    VStack {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(.red)
-                        Text("\(Int(heartRate))")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        Text("BPM")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if let breathingRate = meditationManager.currentBreathingRate {
-                        VStack {
-                            Image(systemName: "lungs.fill")
-                                .foregroundColor(.blue)
-                            Text("\(Int(breathingRate))")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                            Text("RPM")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
-            }
-            
             // Stop button
             Button(action: {
                 meditationManager.stopSession()

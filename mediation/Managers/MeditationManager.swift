@@ -1,15 +1,12 @@
 import Foundation
 import Combine
 import AVFoundation
-import WatchConnectivity
 
 class MeditationManager: ObservableObject {
     @Published var isSessionActive = false
     @Published var currentSession: MeditationSession?
     @Published var progress: Double = 0
     @Published var timeRemaining: TimeInterval = 0
-    @Published var currentHeartRate: Double?
-    @Published var currentBreathingRate: Double?
     @Published var sessions: [MeditationSession] = []
     
     private var timer: Timer?
@@ -17,6 +14,7 @@ class MeditationManager: ObservableObject {
     private var startTime: Date?
     private var audioPlayer: AVAudioPlayer?
     private var cancellables = Set<AnyCancellable>()
+    private var healthManager: HealthKitManager?
     
     var formattedTimeRemaining: String {
         let minutes = Int(timeRemaining) / 60
@@ -27,13 +25,10 @@ class MeditationManager: ObservableObject {
     init() {
         loadSessions()
         setupAudioSession()
-        
-        // Listen for watch connectivity updates
-        NotificationCenter.default.publisher(for: .watchConnectivityDidReceiveData)
-            .sink { [weak self] notification in
-                self?.handleWatchData(notification)
-            }
-            .store(in: &cancellables)
+    }
+    
+    func setHealthManager(_ healthManager: HealthKitManager) {
+        self.healthManager = healthManager
     }
     
     private func setupAudioSession() {
@@ -71,9 +66,6 @@ class MeditationManager: ObservableObject {
             self?.updateTimer()
         }
         
-        // Start watch session
-        WatchConnectivityManager.shared.startMeditationSession(duration: duration)
-        
         print("Started meditation session for \(duration/60) minutes")
     }
     
@@ -89,20 +81,18 @@ class MeditationManager: ObservableObject {
             session.endDate = Date()
             session.actualDuration = Date().timeIntervalSince(session.startDate)
             
+            // Calculate averages if we have health data
+            session.calculateAverages()
+            
             // Save session
             sessions.append(session)
             saveSessions()
             
             // Save to HealthKit
-            if let healthManager = getHealthManager() {
-                healthManager.saveMindfulSession(session)
-            }
+            healthManager?.saveMindfulSession(session)
             
             currentSession = nil
         }
-        
-        // Stop watch session
-        WatchConnectivityManager.shared.stopMeditationSession()
         
         // Play completion sound
         playCompletionSound()
@@ -123,39 +113,6 @@ class MeditationManager: ObservableObject {
         }
     }
     
-    private func handleWatchData(_ notification: Notification) {
-        guard let data = notification.userInfo?["data"] as? [String: Any] else { return }
-        
-        if let heartRate = data["heartRate"] as? Double {
-            currentHeartRate = heartRate
-        }
-        
-        if let breathingRate = data["breathingRate"] as? Double {
-            currentBreathingRate = breathingRate
-        }
-        
-        // Update current session with new data
-        if var session = currentSession {
-            if let heartRate = currentHeartRate {
-                let heartRateDataPoint = HealthDataPoint(
-                    timestamp: Date(),
-                    value: heartRate
-                )
-                session.heartRateData.append(heartRateDataPoint)
-            }
-            
-            if let breathingRate = currentBreathingRate {
-                let breathingRateDataPoint = HealthDataPoint(
-                    timestamp: Date(),
-                    value: breathingRate
-                )
-                session.breathingRateData.append(breathingRateDataPoint)
-            }
-            
-            currentSession = session
-        }
-    }
-    
     private func playCompletionSound() {
         // Play system sound for meditation completion
         AudioServicesPlaySystemSound(1327) // Gentle bell sound
@@ -163,6 +120,41 @@ class MeditationManager: ObservableObject {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+    }
+    
+    // MARK: - Session Management
+    
+    func deleteSession(_ session: MeditationSession) {
+        // Remove from local storage
+        sessions.removeAll { $0.id == session.id }
+        saveSessions()
+        
+        // Also delete from HealthKit if available
+        healthManager?.deleteMindfulSession(session) { success in
+            if success {
+                print("Session deleted from HealthKit")
+            } else {
+                print("Failed to delete session from HealthKit")
+            }
+        }
+    }
+    
+    func deleteAllSessions() {
+        // Delete each session from HealthKit first
+        let sessionsToDelete = sessions
+        sessions.removeAll()
+        saveSessions()
+        
+        // Delete from HealthKit
+        for session in sessionsToDelete {
+            healthManager?.deleteMindfulSession(session) { success in
+                if success {
+                    print("Session deleted from HealthKit")
+                } else {
+                    print("Failed to delete session from HealthKit")
+                }
+            }
+        }
     }
     
     // MARK: - Persistence
@@ -185,17 +177,6 @@ class MeditationManager: ObservableObject {
             print("Failed to load sessions: \(error)")
         }
     }
-    
-    private func getHealthManager() -> HealthKitManager? {
-        // This would be injected in a real app
-        return nil
-    }
-}
-
-// MARK: - Notifications
-
-extension Notification.Name {
-    static let watchConnectivityDidReceiveData = Notification.Name("watchConnectivityDidReceiveData")
 }
 
 import AudioToolbox

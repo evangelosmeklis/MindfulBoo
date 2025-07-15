@@ -1,0 +1,68 @@
+{
+  "" : {
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditation Watch App-master.dia",
+    "emit-module-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditation Watch App-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditation Watch App-master-emit-module.dia",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditation Watch App-master.swiftdeps"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/ContentView.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/ContentView~partial.swiftmodule"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/Managers/WatchConnectivityManager.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchConnectivityManager~partial.swiftmodule"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/Managers/WatchHealthManager.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchHealthManager~partial.swiftmodule"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/Managers/WatchWorkoutManager.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/WatchWorkoutManager~partial.swiftmodule"
+  },
+  "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/meditationApp.swift" : {
+    "const-values" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.swiftconstvalues",
+    "dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.d",
+    "diagnostics" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.dia",
+    "index-unit-output-path" : "/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.o",
+    "llvm-bc" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.bc",
+    "object" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.o",
+    "swift-dependencies" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp.swiftdeps",
+    "swiftmodule" : "/Users/evangelosmeklis/Desktop/mediation/build/mediation.build/Debug-watchos/meditation Watch App.build/Objects-normal/arm64_32/meditationApp~partial.swiftmodule"
+  }
+}

@@ -48,25 +48,80 @@ class HealthKitManager: ObservableObject {
     }
     
     func saveMindfulSession(_ session: MeditationSession) {
-        guard isAuthorized else { return }
+        guard isAuthorized else { 
+            print("HealthKit not authorized - cannot save mindful session")
+            return 
+        }
+        
+        // Ensure we have valid dates
+        let startDate = session.startDate
+        let endDate = session.endDate ?? Date()
         
         let mindfulSession = HKCategorySample(
             type: HKCategoryType(.mindfulSession),
             value: HKCategoryValue.notApplicable.rawValue,
-            start: session.startDate ?? Date(),
-            end: session.endDate ?? Date()
+            start: startDate,
+            end: endDate
         )
         
         healthStore.save(mindfulSession) { [weak self] success, error in
-            if let error = error {
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                if let error = error {
                     self?.lastError = error
+                    print("Failed to save mindful session: \(error.localizedDescription)")
+                } else {
+                    print("Mindful session saved successfully - Duration: \(session.formattedDuration)")
                 }
-                print("Failed to save mindful session: \(error.localizedDescription)")
-            } else {
-                print("Mindful session saved successfully")
             }
         }
+    }
+    
+    func deleteMindfulSession(_ session: MeditationSession, completion: @escaping (Bool) -> Void) {
+        guard isAuthorized else {
+            completion(false)
+            return
+        }
+        
+        let mindfulSessionType = HKCategoryType(.mindfulSession)
+        let predicate = HKQuery.predicateForSamples(
+            withStart: session.startDate,
+            end: session.endDate,
+            options: .strictStartDate
+        )
+        
+        let query = HKSampleQuery(
+            sampleType: mindfulSessionType,
+            predicate: predicate,
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+        ) { [weak self] _, samples, error in
+            
+            if let error = error {
+                print("Failed to find mindful session for deletion: \(error.localizedDescription)")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+            
+            guard let sample = samples?.first else {
+                print("No mindful session found to delete")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+            
+            self?.healthStore.delete(sample) { success, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("Failed to delete mindful session: \(error.localizedDescription)")
+                        completion(false)
+                    } else {
+                        print("Mindful session deleted successfully")
+                        completion(true)
+                    }
+                }
+            }
+        }
+        
+        healthStore.execute(query)
     }
     
     func fetchHeartRateData(for session: MeditationSession, completion: @escaping ([HKQuantitySample]) -> Void) {

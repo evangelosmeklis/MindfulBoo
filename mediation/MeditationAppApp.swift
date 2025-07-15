@@ -13,6 +13,7 @@ struct MeditationAppApp: App {
                 .environmentObject(meditationManager)
                 .onAppear {
                     healthStore.requestPermissions()
+                    meditationManager.setHealthManager(healthStore)
                 }
         }
     }

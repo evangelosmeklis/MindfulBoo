@@ -6,6 +6,7 @@ struct SessionHistoryView: View {
     @EnvironmentObject var healthStore: HealthKitManager
     @Environment(\.presentationMode) var presentationMode
     @State private var selectedSession: MeditationSession?
+    @State private var showingDeleteAllAlert = false
     
     var body: some View {
         NavigationView {
@@ -14,23 +15,172 @@ struct SessionHistoryView: View {
                     EmptyHistoryView()
                 } else {
                     List {
-                        ForEach(meditationManager.sessions.reversed()) { session in
-                            SessionRowView(session: session)
-                                .onTapGesture {
-                                    selectedSession = session
-                                }
+                        // Summary section
+                        Section {
+                            SessionSummaryStatsView(sessions: meditationManager.sessions)
+                        }
+                        
+                        // Sessions list
+                        Section("Recent Sessions") {
+                            ForEach(meditationManager.sessions.reversed()) { session in
+                                SessionRowView(session: session)
+                                    .onTapGesture {
+                                        selectedSession = session
+                                    }
+                            }
+                            .onDelete(perform: deleteSession)
                         }
                     }
+                    .listStyle(InsetGroupedListStyle())
                 }
             }
             .navigationTitle("Session History")
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .navigationBarItems(
+                leading: meditationManager.sessions.isEmpty ? nil : Button("Delete All") {
+                    showingDeleteAllAlert = true
+                },
+                trailing: Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .alert("Delete All Sessions", isPresented: $showingDeleteAllAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete All", role: .destructive) {
+                    meditationManager.deleteAllSessions()
+                }
+            } message: {
+                Text("Are you sure you want to delete all meditation sessions? This action cannot be undone and will also remove sessions from your Health app.")
+            }
         }
         .sheet(item: $selectedSession) { session in
             SessionDetailView(session: session)
         }
+    }
+    
+    private func deleteSession(at offsets: IndexSet) {
+        let reversedSessions = meditationManager.sessions.reversed()
+        for index in offsets {
+            let sessionIndex = Array(reversedSessions).indices[index]
+            let session = Array(reversedSessions)[sessionIndex]
+            meditationManager.deleteSession(session)
+        }
+    }
+}
+
+struct SessionSummaryStatsView: View {
+    let sessions: [MeditationSession]
+    
+    private var totalSessions: Int {
+        sessions.count
+    }
+    
+    private var totalDuration: TimeInterval {
+        sessions.reduce(0) { $0 + $1.effectiveDuration }
+    }
+    
+    private var completedSessions: Int {
+        sessions.filter { $0.isCompleted }.count
+    }
+    
+    private var averageSessionLength: TimeInterval {
+        guard !sessions.isEmpty else { return 0 }
+        return totalDuration / Double(sessions.count)
+    }
+    
+    private var formattedTotalDuration: String {
+        let hours = Int(totalDuration) / 3600
+        let minutes = (Int(totalDuration) % 3600) / 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
+    }
+    
+    private var formattedAverageLength: String {
+        let minutes = Int(averageSessionLength) / 60
+        return "\(minutes)m"
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundColor(.blue)
+                Text("Your Progress")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            
+            HStack(spacing: 20) {
+                StatsCard(
+                    title: "Total Time",
+                    value: formattedTotalDuration,
+                    icon: "clock.fill",
+                    color: .green
+                )
+                
+                StatsCard(
+                    title: "Sessions",
+                    value: "\(totalSessions)",
+                    icon: "leaf.fill",
+                    color: .blue
+                )
+                
+                StatsCard(
+                    title: "Average",
+                    value: formattedAverageLength,
+                    icon: "chart.line.uptrend.xyaxis",
+                    color: .orange
+                )
+            }
+            
+            if totalSessions > 0 {
+                HStack {
+                    Text("Completion Rate:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(Int(Double(completedSessions) / Double(totalSessions) * 100))%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemGray6))
+        )
+    }
+}
+
+struct StatsCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
     }
 }
 
@@ -39,17 +189,22 @@ struct EmptyHistoryView: View {
         VStack(spacing: 20) {
             Image(systemName: "leaf.circle")
                 .font(.system(size: 60))
-                .foregroundColor(.gray)
+                .foregroundColor(.green)
             
             Text("No sessions yet")
                 .font(.title2)
                 .fontWeight(.semibold)
             
-            Text("Start your first meditation session to see your progress here")
+            Text("Start your first meditation session to see your progress here. Your sessions will be saved locally and synced to the Health app.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+            
+            Image(systemName: "arrow.down.circle")
+                .font(.title)
+                .foregroundColor(.blue)
+                .padding(.top)
         }
         .padding()
     }
@@ -59,34 +214,48 @@ struct SessionRowView: View {
     let session: MeditationSession
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(session.formattedDate)
                         .font(.headline)
+                        .foregroundColor(.primary)
                     
-                    Text(session.formattedDuration)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Image(systemName: "clock")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(session.formattedDuration)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
                 
-                VStack(alignment: .trailing) {
-                    if let avgHeartRate = session.averageHeartRate {
+                VStack(alignment: .trailing, spacing: 4) {
+                    // Completion status
+                    HStack {
+                        Image(systemName: session.isCompleted ? "checkmark.circle.fill" : "clock.badge.exclamationmark")
+                            .foregroundColor(session.isCompleted ? .green : .orange)
+                            .font(.caption)
+                        Text("\(Int(session.completionPercentage * 100))%")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
+                    }
+                    
+                    // Health data indicator
+                    if !session.heartRateData.isEmpty || !session.breathingRateData.isEmpty {
                         HStack {
                             Image(systemName: "heart.fill")
                                 .foregroundColor(.red)
-                                .font(.caption)
-                            Text("\(Int(avgHeartRate))")
-                                .font(.caption)
-                                .fontWeight(.semibold)
+                                .font(.caption2)
+                            Text("Health Data")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
                     }
-                    
-                    Text("\(Int(session.completionPercentage * 100))% complete")
-                        .font(.caption)
-                        .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
                 }
             }
             
@@ -96,6 +265,7 @@ struct SessionRowView: View {
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
                         .frame(height: 4)
+                        .cornerRadius(2)
                     
                     Rectangle()
                         .fill(LinearGradient(
@@ -104,17 +274,25 @@ struct SessionRowView: View {
                             endPoint: .trailing
                         ))
                         .frame(width: geometry.size.width * session.completionPercentage, height: 4)
+                        .cornerRadius(2)
                 }
             }
             .frame(height: 4)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemBackground))
+                .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
     }
 }
 
 struct SessionDetailView: View {
     let session: MeditationSession
+    @EnvironmentObject var meditationManager: MeditationManager
     @Environment(\.presentationMode) var presentationMode
+    @State private var showingDeleteAlert = false
     
     var body: some View {
         NavigationView {
@@ -139,9 +317,24 @@ struct SessionDetailView: View {
                 .padding()
             }
             .navigationTitle("Session Details")
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .navigationBarItems(
+                leading: Button("Delete") {
+                    showingDeleteAlert = true
+                }
+                .foregroundColor(.red),
+                trailing: Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .alert("Delete Session", isPresented: $showingDeleteAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    meditationManager.deleteSession(session)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } message: {
+                Text("Are you sure you want to delete this meditation session? This action cannot be undone and will also remove the session from your Health app.")
+            }
         }
     }
 }

@@ -1,0 +1,64 @@
+{
+  "source": "/Users/evangelosmeklis/Desktop/mediation/meditation Watch App/ContentView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Mindful",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 39
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 48
+        }
+      },
+      {
+        "comment": "",
+        "key": "Meditating",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 71
+        }
+      },
+      {
+        "comment": "",
+        "key": "Resume",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pause",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 100
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,42 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildAndRun"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "0ed00c83cdbdb2330ba4bd92fd718b47900b14b7d24003be37eb981a9d4cdfaf"
+    }
+  ],
+  "containerPath" : "/Users/evangelosmeklis/Desktop/mediation/mediation.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "COLOR_DIAGNOSTICS" : "YES",
+          "diagnostic_message_length" : "108",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "NO"
+        }
+      }
+    }
+  },
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : false,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}
