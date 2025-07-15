@@ -116,6 +116,24 @@ struct ContentView: View {
                             // Debug: Long press to show detailed permissions
                             healthStore.debugPermissions()
                         }
+                        
+                        // Respiratory rate monitoring status
+                        HStack {
+                            Image(systemName: healthStore.canMonitorRespiratoryRate ? "lungs.fill" : "lungs")
+                                .foregroundColor(healthStore.canMonitorRespiratoryRate ? .blue : .orange)
+                                .font(.caption)
+                            Text(healthStore.respiratoryRatePermissionStatus)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                        }
+                        .padding(.top, 2)
+                        .onTapGesture {
+                            if !healthStore.canMonitorRespiratoryRate {
+                                healthStore.retryRespiratoryRatePermission()
+                            }
+                        }
                     }
                 }
                 

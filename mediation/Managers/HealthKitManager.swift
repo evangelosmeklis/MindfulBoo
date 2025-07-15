@@ -31,6 +31,12 @@ class HealthKitManager: ObservableObject {
     
     init() {
         checkAuthorizationStatus()
+        
+        // Test actual data access on app start
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.testHeartRateAccess()
+            self.testRespiratoryRateAccess()
+        }
     }
     
     func forceRefreshPermissions() {
@@ -590,28 +596,65 @@ class HealthKitManager: ObservableObject {
     
     var canMonitorHeartRate: Bool {
         guard HKHealthStore.isHealthDataAvailable() else { return false }
-        let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
-        return heartRateStatus == .sharingAuthorized
+        // Use actual test results instead of unreliable iOS status
+        return heartRateAccessWorks
+    }
+    
+    var canMonitorRespiratoryRate: Bool {
+        guard HKHealthStore.isHealthDataAvailable() else { return false }
+        // Use actual test results instead of unreliable iOS status
+        return respiratoryRateAccessWorks
     }
     
     var heartRatePermissionStatus: String {
         guard HKHealthStore.isHealthDataAvailable() else { return "HealthKit not available" }
-        let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
         
-        switch heartRateStatus {
-        case .notDetermined:
-            return "Tap to enable heart rate monitoring"
-        case .sharingDenied:
-            return "Heart rate access denied - check Settings"
-        case .sharingAuthorized:
-            return "Heart rate monitoring ready"
-        @unknown default:
-            return "Unknown permission status"
+        // Use actual test results instead of unreliable iOS status
+        if heartRateAccessWorks {
+            return "Heart rate monitoring ready ✅"
+        } else {
+            let heartRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.heartRate))
+            switch heartRateStatus {
+            case .notDetermined:
+                return "Tap to enable heart rate monitoring"
+            case .sharingDenied:
+                return "Heart rate access denied - check Settings"
+            case .sharingAuthorized:
+                return "Heart rate permission granted but access failed"
+            @unknown default:
+                return "Unknown permission status"
+            }
+        }
+    }
+    
+    var respiratoryRatePermissionStatus: String {
+        guard HKHealthStore.isHealthDataAvailable() else { return "HealthKit not available" }
+        
+        // Use actual test results instead of unreliable iOS status
+        if respiratoryRateAccessWorks {
+            return "Respiratory rate monitoring ready ✅"
+        } else {
+            let respiratoryRateStatus = healthStore.authorizationStatus(for: HKQuantityType(.respiratoryRate))
+            switch respiratoryRateStatus {
+            case .notDetermined:
+                return "Tap to enable respiratory rate monitoring"
+            case .sharingDenied:
+                return "Respiratory rate access denied - check Settings"
+            case .sharingAuthorized:
+                return "Respiratory rate permission granted but access failed"
+            @unknown default:
+                return "Unknown respiratory rate permission status"
+            }
         }
     }
     
     func retryHeartRatePermission() {
         print("🔄 Retrying heart rate permission request...")
+        requestPermissions()
+    }
+    
+    func retryRespiratoryRatePermission() {
+        print("🔄 Retrying respiratory rate permission request...")
         requestPermissions()
     }
     
