@@ -35,6 +35,10 @@ A meditation app for iOS with Apple Watch heart rate monitoring and Respiratory 
 4. View session history and statistics in the History tab
 5. Sessions sync automatically to Apple Health app
 
+## Privacy
+
+See our [Privacy Policy](PRIVACY.md) for details on data collection and usage.
+
 ## License
 
 GPL 3.0 
