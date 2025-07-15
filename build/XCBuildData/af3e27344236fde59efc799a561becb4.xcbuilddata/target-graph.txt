@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'meditation Watch App' in project 'mediation' (no dependencies)

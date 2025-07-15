@@ -73,14 +73,40 @@ struct ContentView: View {
                             )
                             .cornerRadius(25)
                         }
-                        .disabled(!healthStore.isAuthorized)
+                        
+                        // HealthKit status indicator
+                        if healthStore.isAuthorized {
+                            HStack {
+                                Image(systemName: "heart.fill")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                Text("Syncing with Health app")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 8)
+                        }
+                        
+                        // Apple Watch availability
+                        if HKHealthStore.isHealthDataAvailable() {
+                            HStack {
+                                Image(systemName: "applewatch")
+                                    .foregroundColor(.blue)
+                                    .font(.caption)
+                                Text("Heart rate monitoring available")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
                 
                 Spacer()
                 
                 // Bottom actions
-                HStack(spacing: 40) {
+                HStack {
+                    Spacer()
                     Button(action: { showingHistory = true }) {
                         VStack {
                             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -90,16 +116,7 @@ struct ContentView: View {
                         }
                     }
                     .foregroundColor(.secondary)
-                    
-                    Button(action: { healthStore.requestPermissions() }) {
-                        VStack {
-                            Image(systemName: healthStore.isAuthorized ? "heart.fill" : "heart")
-                                .font(.title2)
-                            Text("Health")
-                                .font(.caption)
-                        }
-                    }
-                    .foregroundColor(healthStore.isAuthorized ? .red : .secondary)
+                    Spacer()
                 }
                 .padding(.bottom, 30)
             }
@@ -112,6 +129,30 @@ struct ContentView: View {
         .sheet(isPresented: $showingHistory) {
             SessionHistoryView()
         }
+        .overlay(
+            // Session saved notification
+            VStack {
+                Spacer()
+                if meditationManager.showSessionSavedMessage {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Session saved to Health app")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemBackground))
+                            .shadow(color: .gray.opacity(0.3), radius: 8, x: 0, y: 4)
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.3), value: meditationManager.showSessionSavedMessage)
+                    .padding(.bottom, 100)
+                }
+            }
+        )
     }
     
     private func startMeditation() {
@@ -159,6 +200,75 @@ struct ActiveSessionView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+            }
+            
+            // Live heart rate from Apple Watch
+            if let heartRate = meditationManager.currentHeartRate {
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "applewatch")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("Live from Apple Watch")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 20) {
+                        VStack {
+                            Image(systemName: "heart.fill")
+                                .foregroundColor(.red)
+                                .font(.title2)
+                            Text("\(Int(heartRate))")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .monospacedDigit()
+                            Text("BPM")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        VStack {
+                            Image(systemName: "waveform.path.ecg")
+                                .foregroundColor(.green)
+                                .font(.title2)
+                            Text(meditationManager.isHeartRateMonitoring ? "Monitoring" : "Connecting")
+                                .font(.caption)
+                                .foregroundColor(meditationManager.isHeartRateMonitoring ? .green : .orange)
+                        }
+                    }
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
+                )
+                .animation(.easeInOut(duration: 0.3), value: heartRate)
+            } else if meditationManager.isSessionActive {
+                // Apple Watch connection status
+                VStack {
+                    HStack {
+                        Image(systemName: "applewatch")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("Starting heart rate monitoring...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .scaleEffect(0.8)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                )
             }
             
             // Stop button

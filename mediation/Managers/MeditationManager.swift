@@ -8,6 +8,9 @@ class MeditationManager: ObservableObject {
     @Published var progress: Double = 0
     @Published var timeRemaining: TimeInterval = 0
     @Published var sessions: [MeditationSession] = []
+    @Published var showSessionSavedMessage = false
+    @Published var currentHeartRate: Double?
+    @Published var isHeartRateMonitoring = false
     
     private var timer: Timer?
     private var sessionDuration: TimeInterval = 0
@@ -29,6 +32,13 @@ class MeditationManager: ObservableObject {
     
     func setHealthManager(_ healthManager: HealthKitManager) {
         self.healthManager = healthManager
+        
+        // Bind heart rate data from HealthKit manager
+        healthManager.$currentHeartRate
+            .assign(to: &$currentHeartRate)
+        
+        healthManager.$isMonitoringHeartRate
+            .assign(to: &$isHeartRateMonitoring)
     }
     
     private func setupAudioSession() {
@@ -61,6 +71,9 @@ class MeditationManager: ObservableObject {
             averageBreathingRate: nil
         )
         
+        // Start workout session to trigger Apple Watch monitoring
+        healthManager?.startWorkoutSession()
+        
         // Start timer
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateTimer()
@@ -75,6 +88,9 @@ class MeditationManager: ObservableObject {
         timer?.invalidate()
         timer = nil
         isSessionActive = false
+        
+        // Stop workout session
+        healthManager?.stopWorkoutSession()
         
         // Complete current session
         if var session = currentSession {
@@ -91,6 +107,15 @@ class MeditationManager: ObservableObject {
             // Save to HealthKit
             healthManager?.saveMindfulSession(session)
             
+            // Save workout record for Apple Watch integration
+            healthManager?.saveWorkoutRecord(for: session)
+            
+            // Show save confirmation briefly
+            showSessionSavedMessage = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self.showSessionSavedMessage = false
+            }
+            
             currentSession = nil
         }
         
@@ -106,6 +131,14 @@ class MeditationManager: ObservableObject {
         let elapsed = Date().timeIntervalSince(startTime)
         timeRemaining = max(0, sessionDuration - elapsed)
         progress = min(1.0, elapsed / sessionDuration)
+        
+        // Collect heart rate data if available
+        if let heartRate = currentHeartRate,
+           var session = currentSession {
+            let dataPoint = HealthDataPoint(timestamp: Date(), value: heartRate)
+            session.heartRateData.append(dataPoint)
+            currentSession = session
+        }
         
         // Check if session should end
         if timeRemaining <= 0 {
