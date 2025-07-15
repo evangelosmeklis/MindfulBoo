@@ -14,6 +14,10 @@ class MeditationManager: ObservableObject {
     @Published var isHeartRateMonitoring = false
     @Published var isRespiratoryRateMonitoring = false
     
+    // Track last recorded values to avoid duplicates
+    private var lastRecordedHeartRate: Double?
+    private var lastRecordedRespiratoryRate: Double?
+    
     private var timer: Timer?
     private var sessionDuration: TimeInterval = 0
     private var startTime: Date?
@@ -66,6 +70,10 @@ class MeditationManager: ObservableObject {
         startTime = Date()
         isSessionActive = true
         progress = 0
+        
+        // Reset tracking variables for new session
+        lastRecordedHeartRate = nil
+        lastRecordedRespiratoryRate = nil
         
         // Create new session
         currentSession = MeditationSession(
@@ -140,12 +148,26 @@ class MeditationManager: ObservableObject {
         timeRemaining = max(0, sessionDuration - elapsed)
         progress = min(1.0, elapsed / sessionDuration)
         
-        // Collect heart rate data if available
+        // Collect heart rate data only when it changes
         if let heartRate = currentHeartRate,
-           var session = currentSession {
+           var session = currentSession,
+           lastRecordedHeartRate != heartRate {
             let dataPoint = HealthDataPoint(timestamp: Date(), value: heartRate)
             session.heartRateData.append(dataPoint)
             currentSession = session
+            lastRecordedHeartRate = heartRate
+            print("📊 Recorded new heart rate: \(Int(heartRate)) BPM (total readings: \(session.heartRateData.count))")
+        }
+        
+        // Collect respiratory rate data only when it changes
+        if let respiratoryRate = currentRespiratoryRate,
+           var session = currentSession,
+           lastRecordedRespiratoryRate != respiratoryRate {
+            let dataPoint = HealthDataPoint(timestamp: Date(), value: respiratoryRate)
+            session.breathingRateData.append(dataPoint)
+            currentSession = session
+            lastRecordedRespiratoryRate = respiratoryRate
+            print("📊 Recorded new respiratory rate: \(Int(respiratoryRate)) breaths/min (total readings: \(session.breathingRateData.count))")
         }
         
         // Check if session should end

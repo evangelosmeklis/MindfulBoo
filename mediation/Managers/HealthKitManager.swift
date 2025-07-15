@@ -406,24 +406,32 @@ class HealthKitManager: ObservableObject {
         let heartRateType = HKQuantityType(.heartRate)
         let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
         
+        // Only get heart rate data from the last 5 minutes to avoid old data
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
+        let predicate = HKQuery.predicateForSamples(withStart: fiveMinutesAgo, end: nil, options: .strictStartDate)
+        
         // Create anchored query for real-time heart rate updates
         heartRateQuery = HKAnchoredObjectQuery(
             type: heartRateType,
-            predicate: nil,
+            predicate: predicate,
             anchor: nil,
-            limit: HKObjectQueryNoLimit
+            limit: 1  // Only get the most recent sample initially
         ) { [weak self] query, samples, deletedObjects, anchor, error in
             
             guard let samples = samples as? [HKQuantitySample] else { return }
             
-            // Get the most recent heart rate sample
-            if let latestSample = samples.last {
-                let heartRate = latestSample.quantity.doubleValue(for: heartRateUnit)
+            // Process all new samples, not just the last one
+            for sample in samples {
+                let heartRate = sample.quantity.doubleValue(for: heartRateUnit)
+                let sampleDate = sample.startDate
                 
-                DispatchQueue.main.async {
-                    self?.currentHeartRate = heartRate
-                    self?.isMonitoringHeartRate = true
-                    print("💓 Live heart rate: \(Int(heartRate)) BPM")
+                // Only update if this is a recent sample (within last 30 seconds)
+                if sampleDate.timeIntervalSinceNow > -30 {
+                    DispatchQueue.main.async {
+                        self?.currentHeartRate = heartRate
+                        self?.isMonitoringHeartRate = true
+                        print("💓 Initial heart rate: \(Int(heartRate)) BPM at \(sampleDate)")
+                    }
                 }
             }
         }
@@ -432,12 +440,17 @@ class HealthKitManager: ObservableObject {
         heartRateQuery?.updateHandler = { [weak self] query, samples, deletedObjects, anchor, error in
             guard let samples = samples as? [HKQuantitySample] else { return }
             
-            if let latestSample = samples.last {
-                let heartRate = latestSample.quantity.doubleValue(for: heartRateUnit)
+            // Process all new samples
+            for sample in samples {
+                let heartRate = sample.quantity.doubleValue(for: heartRateUnit)
+                let sampleDate = sample.startDate
                 
-                DispatchQueue.main.async {
-                    self?.currentHeartRate = heartRate
-                    print("💓 Updated heart rate: \(Int(heartRate)) BPM")
+                // Only update with truly new readings (within last 10 seconds)
+                if sampleDate.timeIntervalSinceNow > -10 {
+                    DispatchQueue.main.async {
+                        self?.currentHeartRate = heartRate
+                        print("💓 Live heart rate update: \(Int(heartRate)) BPM at \(sampleDate)")
+                    }
                 }
             }
         }
@@ -445,7 +458,7 @@ class HealthKitManager: ObservableObject {
         // Execute the query
         if let query = heartRateQuery {
             healthStore.execute(query)
-            print("🔄 Started live heart rate monitoring")
+            print("🔄 Started live heart rate monitoring with recent data filter")
         }
     }
     
@@ -465,24 +478,32 @@ class HealthKitManager: ObservableObject {
         let respiratoryRateType = HKQuantityType(.respiratoryRate)
         let respiratoryRateUnit = HKUnit.count().unitDivided(by: .minute())
         
+        // Only get respiratory rate data from the last 5 minutes to avoid old data
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
+        let predicate = HKQuery.predicateForSamples(withStart: fiveMinutesAgo, end: nil, options: .strictStartDate)
+        
         // Create anchored query for real-time respiratory rate updates
         respiratoryRateQuery = HKAnchoredObjectQuery(
             type: respiratoryRateType,
-            predicate: nil,
+            predicate: predicate,
             anchor: nil,
-            limit: HKObjectQueryNoLimit
+            limit: 1  // Only get the most recent sample initially
         ) { [weak self] query, samples, deletedObjects, anchor, error in
             
             guard let samples = samples as? [HKQuantitySample] else { return }
             
-            // Get the most recent respiratory rate sample
-            if let latestSample = samples.last {
-                let respiratoryRate = latestSample.quantity.doubleValue(for: respiratoryRateUnit)
+            // Process all new samples
+            for sample in samples {
+                let respiratoryRate = sample.quantity.doubleValue(for: respiratoryRateUnit)
+                let sampleDate = sample.startDate
                 
-                DispatchQueue.main.async {
-                    self?.currentRespiratoryRate = respiratoryRate
-                    self?.isMonitoringRespiratoryRate = true
-                    print("🫁 Live respiratory rate: \(Int(respiratoryRate)) breaths/min")
+                // Only update if this is a recent sample (within last 30 seconds)
+                if sampleDate.timeIntervalSinceNow > -30 {
+                    DispatchQueue.main.async {
+                        self?.currentRespiratoryRate = respiratoryRate
+                        self?.isMonitoringRespiratoryRate = true
+                        print("🫁 Initial respiratory rate: \(Int(respiratoryRate)) breaths/min at \(sampleDate)")
+                    }
                 }
             }
         }
@@ -491,12 +512,17 @@ class HealthKitManager: ObservableObject {
         respiratoryRateQuery?.updateHandler = { [weak self] query, samples, deletedObjects, anchor, error in
             guard let samples = samples as? [HKQuantitySample] else { return }
             
-            if let latestSample = samples.last {
-                let respiratoryRate = latestSample.quantity.doubleValue(for: respiratoryRateUnit)
+            // Process all new samples
+            for sample in samples {
+                let respiratoryRate = sample.quantity.doubleValue(for: respiratoryRateUnit)
+                let sampleDate = sample.startDate
                 
-                DispatchQueue.main.async {
-                    self?.currentRespiratoryRate = respiratoryRate
-                    print("🫁 Updated respiratory rate: \(Int(respiratoryRate)) breaths/min")
+                // Only update with truly new readings (within last 10 seconds)
+                if sampleDate.timeIntervalSinceNow > -10 {
+                    DispatchQueue.main.async {
+                        self?.currentRespiratoryRate = respiratoryRate
+                        print("🫁 Live respiratory rate update: \(Int(respiratoryRate)) breaths/min at \(sampleDate)")
+                    }
                 }
             }
         }
@@ -504,7 +530,7 @@ class HealthKitManager: ObservableObject {
         // Execute the query
         if let query = respiratoryRateQuery {
             healthStore.execute(query)
-            print("🔄 Started live respiratory rate monitoring")
+            print("🔄 Started live respiratory rate monitoring with recent data filter")
         }
     }
     
