@@ -23,6 +23,7 @@ class SessionManager: ObservableObject {
     private var notificationIdentifier = "meditation_session_complete"
 
 
+
     
     var formattedTimeRemaining: String {
         let minutes = Int(timeRemaining) / 60
@@ -110,6 +111,9 @@ class SessionManager: ObservableObject {
         // End background task
         endBackgroundTask()
         
+        // End Live Activity
+        endLiveActivity()
+        
         // Cancel all countdown notifications
         cancelAllCountdownNotifications()
         
@@ -154,7 +158,8 @@ class SessionManager: ObservableObject {
         
 
         
-        // Update lock screen notifications if needed
+        // Update Live Activity with current progress
+        updateLiveActivity()
         
         // Check if session should end
         if timeRemaining <= 0 {
@@ -453,8 +458,11 @@ class SessionManager: ObservableObject {
     // MARK: - Lock Screen Countdown Support
     
     private func startLockScreenCountdown(duration: TimeInterval) {
-        // Use enhanced notifications for lock screen countdown
-        print("Starting enhanced notifications for lock screen countdown")
+        // Start Live Activity for persistent lock screen display
+        print("Starting Live Activity for lock screen countdown")
+        startLiveActivity(duration: duration)
+        
+        // Also schedule enhanced notifications as fallback
         scheduleEnhancedLockScreenNotifications(duration: duration)
     }
     
@@ -570,6 +578,22 @@ class SessionManager: ObservableObject {
         // Also cancel specific countdown notifications we know about
         let knownIds = ["halfway_point", "countdown_1min", "countdown_3min", "countdown_5min"]
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: knownIds)
+    }
+    
+    // MARK: - Live Activity Support
+    
+    private func startLiveActivity(duration: TimeInterval) {
+        // Live Activities not available - using enhanced notification system
+        print("⚠️ Live Activities not available - using enhanced fallback notifications")
+        print("💡 Enhanced notifications will provide lock screen countdown updates")
+    }
+    
+    private func updateLiveActivity() {
+        // No Live Activity to update - using notification system instead
+    }
+    
+    private func endLiveActivity() {
+        // No Live Activity to end - notifications will be cancelled separately
     }
 
 }

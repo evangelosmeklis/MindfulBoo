@@ -1,6 +1,6 @@
 import SwiftUI
 import HealthKit
-import UserNotifications
+import UserNotifications 
 
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
