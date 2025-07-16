@@ -40,7 +40,7 @@ struct ContentView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.green)
                     
-                    Text("BeMindful")
+                    Text("MindfulBoo")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                     
@@ -68,8 +68,11 @@ struct ContentView: View {
                     )
                     .onTapGesture {
                         // Debug tap - force recalculate
+                        print("🐛 DEBUG TAP: Forcing streak recalculation...")
                         healthStore.calculateConsecutiveDays()
-                        print("🐛 Debug: Forced consecutive days recalculation. Current: \(healthStore.consecutiveDays)")
+                        
+                        // Also show debug permissions info
+                        healthStore.debugPermissions()
                     }
                 }
                 .padding(.top, 20)

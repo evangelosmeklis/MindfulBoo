@@ -1,4 +1,4 @@
-# 🧘‍♀️ BeMindful
+# 🧘‍♀️ MindfulBoo
 
 A simple and fast meditation app for iOS.
 
@@ -30,9 +30,9 @@ A simple and fast meditation app for iOS.
 
 1. Clone the repo
    ```bash
-   git clone https://github.com/evangelosmeklis/bemindful.git
+   git clone https://github.com/evangelosmeklis/mindfulboo.git
    ```
-2. Open `bemindful.xcodeproj`
+2. Open `mindfulboo.xcodeproj`
 3. Select your development team
 4. Build and run
 

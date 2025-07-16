@@ -25,7 +25,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 }
 
 @main
-struct BeMindfulApp: App {
+struct MindfulBooApp: App {
     @StateObject private var healthStore = HealthKitManager()
     @StateObject private var sessionManager = SessionManager()
     private let notificationDelegate = NotificationDelegate()

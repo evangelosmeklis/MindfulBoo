@@ -48,7 +48,7 @@ struct SessionHistoryView: View {
                     sessionManager.deleteAllSessions()
                 }
             } message: {
-                Text("Are you sure you want to delete all meditation sessions from BeMindful? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
+                Text("Are you sure you want to delete all meditation sessions from MindfulBoo? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
             }
         }
         .sheet(item: $selectedSession) { session in
@@ -320,7 +320,7 @@ struct SessionDetailView: View {
                     presentationMode.wrappedValue.dismiss()
                 }
             } message: {
-                Text("Are you sure you want to delete this meditation session from BeMindful? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
+                Text("Are you sure you want to delete this meditation session from MindfulBoo? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
             }
         }
     }

@@ -1,13 +1,13 @@
 //
-//  BeMindfulUITests.swift
-//  BeMindfulUITests
+//  MindfulBooUITests.swift
+//  MindfulBooUITests
 //
 //  Created by Evangelos Meklis on 15/7/25.
 //
 
 import XCTest
 
-final class BeMindfulUITests: XCTestCase {
+final class MindfulBooUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

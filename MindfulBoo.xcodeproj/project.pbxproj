@@ -12,37 +12,37 @@
 			containerPortal = 58C29BFF2E26C59100F66732 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 58C29C062E26C59100F66732;
-			remoteInfo = mediation;
+			remoteInfo = MindfulBoo;
 		};
 		58C29C202E26C59200F66732 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 58C29BFF2E26C59100F66732 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 58C29C062E26C59100F66732;
-			remoteInfo = mediation;
+			remoteInfo = MindfulBoo;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		58C29C072E26C59100F66732 /* bemindful.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bemindful.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29C152E26C59200F66732 /* bemindfulTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = bemindfulTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = bemindfulUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C072E26C59100F66732 /* MindfulBoo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MindfulBoo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C152E26C59200F66732 /* MindfulBooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindfulBooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C1F2E26C59200F66732 /* MindfulBooUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindfulBooUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		58C29C092E26C59100F66732 /* BeMindful */ = {
+		58C29C092E26C59100F66732 /* MindfulBoo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BeMindful;
+			path = MindfulBoo;
 			sourceTree = "<group>";
 		};
-		58C29C182E26C59200F66732 /* BeMindfulTests */ = {
+		58C29C182E26C59200F66732 /* MindfulBooTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BeMindfulTests;
+			path = MindfulBooTests;
 			sourceTree = "<group>";
 		};
-		58C29C222E26C59200F66732 /* BeMindfulUITests */ = {
+		58C29C222E26C59200F66732 /* MindfulBooUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BeMindfulUITests;
+			path = MindfulBooUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		58C29BFE2E26C59100F66732 = {
 			isa = PBXGroup;
 			children = (
-				58C29C092E26C59100F66732 /* BeMindful */,
-				58C29C182E26C59200F66732 /* BeMindfulTests */,
-				58C29C222E26C59200F66732 /* BeMindfulUITests */,
+				58C29C092E26C59100F66732 /* MindfulBoo */,
+				58C29C182E26C59200F66732 /* MindfulBooTests */,
+				58C29C222E26C59200F66732 /* MindfulBooUITests */,
 				58C29C082E26C59100F66732 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		58C29C082E26C59100F66732 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				58C29C072E26C59100F66732 /* bemindful.app */,
-				58C29C152E26C59200F66732 /* bemindfulTests.xctest */,
-				58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */,
+				58C29C072E26C59100F66732 /* MindfulBoo.app */,
+				58C29C152E26C59200F66732 /* MindfulBooTests.xctest */,
+				58C29C1F2E26C59200F66732 /* MindfulBooUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		58C29C062E26C59100F66732 /* bemindful */ = {
+		58C29C062E26C59100F66732 /* MindfulBoo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindful" */;
+			buildConfigurationList = 58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBoo" */;
 			buildPhases = (
 				58C29C032E26C59100F66732 /* Sources */,
 				58C29C042E26C59100F66732 /* Frameworks */,
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C092E26C59100F66732 /* BeMindful */,
+				58C29C092E26C59100F66732 /* MindfulBoo */,
 			);
-			name = bemindful;
+			name = MindfulBoo;
 			packageProductDependencies = (
 			);
-			productName = BeMindful;
-			productReference = 58C29C072E26C59100F66732 /* bemindful.app */;
+			productName = MindfulBoo;
+			productReference = 58C29C072E26C59100F66732 /* MindfulBoo.app */;
 			productType = "com.apple.product-type.application";
 		};
-		58C29C142E26C59200F66732 /* bemindfulTests */ = {
+		58C29C142E26C59200F66732 /* MindfulBooTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulTests" */;
+			buildConfigurationList = 58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBooTests" */;
 			buildPhases = (
 				58C29C112E26C59200F66732 /* Sources */,
 				58C29C122E26C59200F66732 /* Frameworks */,
@@ -131,18 +131,18 @@
 				58C29C172E26C59200F66732 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C182E26C59200F66732 /* BeMindfulTests */,
+				58C29C182E26C59200F66732 /* MindfulBooTests */,
 			);
-			name = bemindfulTests;
+			name = MindfulBooTests;
 			packageProductDependencies = (
 			);
-			productName = BeMindfulTests;
-			productReference = 58C29C152E26C59200F66732 /* bemindfulTests.xctest */;
+			productName = MindfulBooTests;
+			productReference = 58C29C152E26C59200F66732 /* MindfulBooTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		58C29C1E2E26C59200F66732 /* bemindfulUITests */ = {
+		58C29C1E2E26C59200F66732 /* MindfulBooUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulUITests" */;
+			buildConfigurationList = 58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBooUITests" */;
 			buildPhases = (
 				58C29C1B2E26C59200F66732 /* Sources */,
 				58C29C1C2E26C59200F66732 /* Frameworks */,
@@ -154,13 +154,13 @@
 				58C29C212E26C59200F66732 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C222E26C59200F66732 /* BeMindfulUITests */,
+				58C29C222E26C59200F66732 /* MindfulBooUITests */,
 			);
-			name = bemindfulUITests;
+			name = MindfulBooUITests;
 			packageProductDependencies = (
 			);
-			productName = BeMindfulUITests;
-			productReference = 58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */;
+			productName = MindfulBooUITests;
+			productReference = 58C29C1F2E26C59200F66732 /* MindfulBooUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 58C29C022E26C59100F66732 /* Build configuration list for PBXProject "bemindful" */;
+			buildConfigurationList = 58C29C022E26C59100F66732 /* Build configuration list for PBXProject "MindfulBoo" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				58C29C062E26C59100F66732 /* bemindful */,
-				58C29C142E26C59200F66732 /* bemindfulTests */,
-				58C29C1E2E26C59200F66732 /* bemindfulUITests */,
+				58C29C062E26C59100F66732 /* MindfulBoo */,
+				58C29C142E26C59200F66732 /* MindfulBooTests */,
+				58C29C1E2E26C59200F66732 /* MindfulBooUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		58C29C172E26C59200F66732 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 58C29C062E26C59100F66732 /* bemindful */;
+			target = 58C29C062E26C59100F66732 /* MindfulBoo */;
 			targetProxy = 58C29C162E26C59200F66732 /* PBXContainerItemProxy */;
 		};
 		58C29C212E26C59200F66732 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 58C29C062E26C59100F66732 /* bemindful */;
+			target = 58C29C062E26C59100F66732 /* MindfulBoo */;
 			targetProxy = 58C29C202E26C59200F66732 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -390,10 +390,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = BeMindful/BeMindful.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MindfulBoo/BeMindful/BeMindful.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4J5PR3N5UX;
+				DEVELOPMENT_TEAM = 6AWG6XKD86;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -414,7 +414,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.bemindful;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBoo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -431,10 +431,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = BeMindful/BeMindful.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MindfulBoo/BeMindful/BeMindful.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4J5PR3N5UX;
+				DEVELOPMENT_TEAM = 6AWG6XKD86;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -455,7 +455,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.bemindful;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBoo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -478,14 +478,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediationTests;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBooTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/bemindful.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/bemindful";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MindfulBoo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MindfulBoo";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Debug;
@@ -501,14 +501,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediationTests;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBooTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/bemindful.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/bemindful";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MindfulBoo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MindfulBoo";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Release;
@@ -523,14 +523,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediationUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBooUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = mediation;
+				TEST_TARGET_NAME = MindfulBoo;
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Debug;
@@ -545,14 +545,14 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediationUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.MindfulBooUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = mediation;
+				TEST_TARGET_NAME = MindfulBoo;
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Release;
@@ -560,7 +560,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		58C29C022E26C59100F66732 /* Build configuration list for PBXProject "bemindful" */ = {
+		58C29C022E26C59100F66732 /* Build configuration list for PBXProject "MindfulBoo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C272E26C59200F66732 /* Debug */,
@@ -569,7 +569,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindful" */ = {
+		58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBoo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C2A2E26C59200F66732 /* Debug */,
@@ -578,7 +578,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulTests" */ = {
+		58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBooTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C2D2E26C59200F66732 /* Debug */,
@@ -587,7 +587,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulUITests" */ = {
+		58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "MindfulBooUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C302E26C59200F66732 /* Debug */,

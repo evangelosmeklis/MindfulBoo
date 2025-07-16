@@ -325,37 +325,62 @@ class HealthKitManager: ObservableObject {
                 return
             }
             
-            // Calculate consecutive days
+            // Calculate consecutive days based on START DATE (when meditation began)
             let calendar = Calendar.current
             var consecutive = 0
-            var currentDate = calendar.startOfDay(for: Date())
             
-            // Group sessions by day and log them
+            // Group sessions by the day they STARTED (not ended)
             var sessionsByDay: Set<Date> = []
-            var sessionsByDayArray: [Date] = []
             for sample in samples {
+                // Use startDate to determine which day the meditation belongs to
                 let dayStart = calendar.startOfDay(for: sample.startDate)
                 sessionsByDay.insert(dayStart)
-                sessionsByDayArray.append(dayStart)
             }
             
             // Debug: Log all unique session days
             let sortedDays = Array(sessionsByDay).sorted(by: >)
-            print("📅 Session days found (most recent first):")
+            print("📅 Session days found (most recent first, based on START date):")
             for day in sortedDays.prefix(10) {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
+                formatter.timeStyle = .none
                 print("   - \(formatter.string(from: day))")
             }
             
             // Count consecutive days backwards from today
             print("🔍 Checking consecutive days starting from today...")
-            while sessionsByDay.contains(currentDate) {
-                consecutive += 1
+            var currentDate = calendar.startOfDay(for: Date())
+            
+            // Check if there's a session today first
+            if sessionsByDay.contains(currentDate) {
+                consecutive = 1
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
-                print("   ✅ Day \(consecutive): \(formatter.string(from: currentDate))")
+                print("   ✅ Day \(consecutive): \(formatter.string(from: currentDate)) (TODAY)")
+                
+                // Now check previous days
                 currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+                
+                while sessionsByDay.contains(currentDate) {
+                    consecutive += 1
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    print("   ✅ Day \(consecutive): \(formatter.string(from: currentDate))")
+                    currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+                }
+            } else {
+                // No session today, check if there was one yesterday to continue streak
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+                
+                if sessionsByDay.contains(currentDate) {
+                    // There was a session yesterday, but not today - streak is broken
+                    consecutive = 0
+                    print("   ❌ No session today, but found session yesterday - streak broken")
+                } else {
+                    // No session today or yesterday
+                    consecutive = 0
+                    print("   ❌ No session today or yesterday - streak is 0")
+                }
             }
             
             print("⚡ Final consecutive days count: \(consecutive)")

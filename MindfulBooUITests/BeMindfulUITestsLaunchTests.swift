@@ -1,13 +1,13 @@
 //
-//  BeMindfulUITestsLaunchTests.swift
-//  BeMindfulUITests
+//  MindfulBooUITestsLaunchTests.swift
+//  MindfulBooUITests
 //
 //  Created by Evangelos Meklis on 15/7/25.
 //
 
 import XCTest
 
-final class BeMindfulUITestsLaunchTests: XCTestCase {
+final class MindfulBooUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

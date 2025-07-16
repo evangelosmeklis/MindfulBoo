@@ -187,14 +187,14 @@ class SessionManager: ObservableObject {
     private func saveSessions() {
         do {
             let data = try JSONEncoder().encode(sessions)
-            UserDefaults.standard.set(data, forKey: "BeMindfulSessions")
+            UserDefaults.standard.set(data, forKey: "MindfulBooSessions")
         } catch {
             print("Failed to save sessions: \(error)")
         }
     }
     
     private func loadSessions() {
-        guard let data = UserDefaults.standard.data(forKey: "BeMindfulSessions") else { return }
+        guard let data = UserDefaults.standard.data(forKey: "MindfulBooSessions") else { return }
         
         do {
             sessions = try JSONDecoder().decode([Session].self, from: data)
