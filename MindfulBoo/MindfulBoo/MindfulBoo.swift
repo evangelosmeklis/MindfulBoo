@@ -17,8 +17,14 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         case "EXTEND_ACTION":
             print("User wants to extend meditation by 5 minutes")
             // Could add logic here to extend the current session
+        case "STOP_SESSION_ACTION":
+            print("User wants to stop the current session")
+            // Could add logic here to stop the current session
+        case "EXTEND_SESSION_ACTION":
+            print("User wants to extend the current session by 5 minutes")
+            // Could add logic here to extend the current session
         default:
-            print("User tapped meditation completion notification")
+            print("User tapped meditation notification")
         }
         completionHandler()
     }

@@ -22,6 +22,7 @@ class SessionManager: ObservableObject {
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var notificationIdentifier = "meditation_session_complete"
 
+
     
     var formattedTimeRemaining: String {
         let minutes = Int(timeRemaining) / 60
@@ -85,6 +86,9 @@ class SessionManager: ObservableObject {
         
 
         
+        // Start lock screen countdown display
+        startLockScreenCountdown(duration: duration)
+        
         // Start main session timer
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateTimer()
@@ -105,6 +109,9 @@ class SessionManager: ObservableObject {
         
         // End background task
         endBackgroundTask()
+        
+        // Cancel all countdown notifications
+        cancelAllCountdownNotifications()
         
         // Remove app state observers
         removeAppStateObservers()
@@ -146,6 +153,8 @@ class SessionManager: ObservableObject {
         progress = min(1.0, elapsed / sessionDuration)
         
 
+        
+        // Update lock screen notifications if needed
         
         // Check if session should end
         if timeRemaining <= 0 {
@@ -269,8 +278,59 @@ class SessionManager: ObservableObject {
             }
         }
         
+        // Schedule lock screen countdown notifications (fallback for devices without Live Activities)
+        scheduleLockScreenCountdownNotifications(duration: duration)
+        
         // Also schedule intermediate notifications to keep the session alive
         scheduleKeepAliveNotifications(duration: duration)
+    }
+    
+    private func scheduleLockScreenCountdownNotifications(duration: TimeInterval) {
+        // Schedule regular countdown notifications for lock screen (every minute for sessions > 5 min)
+        if duration > 300 { // Only for sessions longer than 5 minutes
+            let countdownIntervals: [TimeInterval] = [
+                duration - 60,   // 1 minute remaining
+                duration - 180,  // 3 minutes remaining
+                duration - 300   // 5 minutes remaining
+            ].filter { $0 > 0 } // Only schedule if the interval is positive
+            
+            for interval in countdownIntervals {
+                let remainingMinutes = Int((duration - interval) / 60)
+                let content = UNMutableNotificationContent()
+                content.title = "🧘‍♀️ Meditation Timer"
+                content.body = "\(remainingMinutes) minute\(remainingMinutes == 1 ? "" : "s") remaining"
+                content.sound = nil // Silent notification for lock screen display
+                content.badge = nil
+                
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+                let request = UNNotificationRequest(
+                    identifier: "countdown_\(remainingMinutes)min",
+                    content: content,
+                    trigger: trigger
+                )
+                
+                UNUserNotificationCenter.current().add(request) { _ in }
+            }
+        }
+        
+        // For shorter sessions, just show halfway point
+        if duration > 120 && duration <= 300 { // 2-5 minutes
+            let halfwayPoint = duration / 2
+            let content = UNMutableNotificationContent()
+            content.title = "🧘‍♀️ Meditation Timer"
+            content.body = "Halfway through your session"
+            content.sound = nil
+            content.badge = nil
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: halfwayPoint, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "halfway_point",
+                content: content,
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { _ in }
+        }
     }
     
     private func scheduleKeepAliveNotifications(duration: TimeInterval) {
@@ -390,6 +450,127 @@ class SessionManager: ObservableObject {
         }
     }
     
+    // MARK: - Lock Screen Countdown Support
+    
+    private func startLockScreenCountdown(duration: TimeInterval) {
+        // Use enhanced notifications for lock screen countdown
+        print("Starting enhanced notifications for lock screen countdown")
+        scheduleEnhancedLockScreenNotifications(duration: duration)
+    }
+    
+    private func scheduleEnhancedLockScreenNotifications(duration: TimeInterval) {
+        // Schedule frequent countdown notifications for better lock screen visibility
+        let totalMinutes = Int(duration / 60)
+        var intervals: [TimeInterval] = []
+        
+        // For sessions longer than 10 minutes, show every 2 minutes
+        if totalMinutes > 10 {
+            for minute in stride(from: totalMinutes - 2, through: 1, by: -2) {
+                let interval = duration - TimeInterval(minute * 60)
+                if interval > 0 {
+                    intervals.append(interval)
+                }
+            }
+        }
+        // For sessions 5-10 minutes, show every minute
+        else if totalMinutes > 5 {
+            for minute in stride(from: totalMinutes - 1, through: 1, by: -1) {
+                let interval = duration - TimeInterval(minute * 60)
+                if interval > 0 {
+                    intervals.append(interval)
+                }
+            }
+        }
+        // For sessions 2-5 minutes, show at halfway and 1 minute remaining
+        else if totalMinutes >= 2 {
+            intervals = [duration / 2, duration - 60].filter { $0 > 0 }
+        }
+        
+        // Schedule all countdown notifications
+        for interval in intervals {
+            let remainingMinutes = Int((duration - interval) / 60)
+            let remainingSeconds = Int((duration - interval).truncatingRemainder(dividingBy: 60))
+            
+            let content = UNMutableNotificationContent()
+            content.title = "🧘‍♀️ Meditation Timer"
+            
+            if remainingMinutes > 0 {
+                content.body = "\(remainingMinutes):\(String(format: "%02d", remainingSeconds)) remaining"
+            } else {
+                content.body = "\(remainingSeconds) seconds remaining"
+            }
+            
+            content.sound = nil // Silent for lock screen display
+            content.badge = nil
+            content.categoryIdentifier = "MEDITATION_COUNTDOWN"
+            
+            // Add progress info to user info for potential future use
+            content.userInfo = [
+                "timeRemaining": duration - interval,
+                "progress": interval / duration,
+                "sessionId": currentSession?.id.uuidString ?? ""
+            ]
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "countdown_\(Int(interval))",
+                content: content,
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Failed to schedule countdown notification: \(error)")
+                } else {
+                    print("Scheduled countdown notification for \(remainingMinutes):\(String(format: "%02d", remainingSeconds))")
+                }
+            }
+        }
+        
+        // Add countdown category for better UX
+        setupCountdownNotificationCategory()
+    }
+    
+    private func setupCountdownNotificationCategory() {
+        let stopAction = UNNotificationAction(
+            identifier: "STOP_SESSION_ACTION",
+            title: "Stop Session",
+            options: [.foreground, .destructive]
+        )
+        
+        let extendAction = UNNotificationAction(
+            identifier: "EXTEND_SESSION_ACTION",
+            title: "Extend +5min",
+            options: []
+        )
+        
+        let category = UNNotificationCategory(
+            identifier: "MEDITATION_COUNTDOWN",
+            actions: [stopAction, extendAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+    
+    private func cancelAllCountdownNotifications() {
+        // Cancel all countdown notifications
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let countdownIds = requests.compactMap { request in
+                request.identifier.hasPrefix("countdown_") ? request.identifier : nil
+            }
+            
+            if !countdownIds.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: countdownIds)
+                print("Cancelled \(countdownIds.count) countdown notifications")
+            }
+        }
+        
+        // Also cancel specific countdown notifications we know about
+        let knownIds = ["halfway_point", "countdown_1min", "countdown_3min", "countdown_5min"]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: knownIds)
+    }
 
 }
 
