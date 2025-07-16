@@ -1,13 +1,13 @@
 //
-//  mediationUITests.swift
-//  mediationUITests
+//  BeMindfulUITests.swift
+//  BeMindfulUITests
 //
 //  Created by Evangelos Meklis on 15/7/25.
 //
 
 import XCTest
 
-final class mediationUITests: XCTestCase {
+final class BeMindfulUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

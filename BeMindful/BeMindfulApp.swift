@@ -2,18 +2,18 @@ import SwiftUI
 import HealthKit
 
 @main
-struct MeditationAppApp: App {
+struct BeMindfulApp: App {
     @StateObject private var healthStore = HealthKitManager()
-    @StateObject private var meditationManager = MeditationManager()
+    @StateObject private var sessionManager = SessionManager()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(healthStore)
-                .environmentObject(meditationManager)
+                .environmentObject(sessionManager)
                 .onAppear {
                     healthStore.requestPermissions()
-                    meditationManager.setHealthManager(healthStore)
+                    sessionManager.setHealthManager(healthStore)
                     
                     // Give a moment for permissions to be processed, then log status
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {

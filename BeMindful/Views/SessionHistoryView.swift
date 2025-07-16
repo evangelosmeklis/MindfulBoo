@@ -1,28 +1,27 @@
 import SwiftUI
-import Charts
 
 struct SessionHistoryView: View {
-    @EnvironmentObject var meditationManager: MeditationManager
+    @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var healthStore: HealthKitManager
     @Environment(\.presentationMode) var presentationMode
-    @State private var selectedSession: MeditationSession?
+    @State private var selectedSession: Session?
     @State private var showingDeleteAllAlert = false
     
     var body: some View {
         NavigationView {
             VStack {
-                if meditationManager.sessions.isEmpty {
+                if sessionManager.sessions.isEmpty {
                     EmptyHistoryView()
                 } else {
                     List {
                         // Summary section
                         Section {
-                            SessionSummaryStatsView(sessions: meditationManager.sessions)
+                            SessionSummaryStatsView(sessions: sessionManager.sessions)
                         }
                         
                         // Sessions list
                         Section("Recent Sessions") {
-                            ForEach(meditationManager.sessions.reversed()) { session in
+                            ForEach(sessionManager.sessions.reversed()) { session in
                                 SessionRowView(session: session)
                                     .onTapGesture {
                                         selectedSession = session
@@ -36,7 +35,7 @@ struct SessionHistoryView: View {
             }
             .navigationTitle("Session History")
             .navigationBarItems(
-                leading: meditationManager.sessions.isEmpty ? nil : Button("Delete All") {
+                leading: sessionManager.sessions.isEmpty ? nil : Button("Delete All") {
                     showingDeleteAllAlert = true
                 },
                 trailing: Button("Done") {
@@ -46,10 +45,10 @@ struct SessionHistoryView: View {
             .alert("Delete All Sessions", isPresented: $showingDeleteAllAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete All", role: .destructive) {
-                    meditationManager.deleteAllSessions()
+                    sessionManager.deleteAllSessions()
                 }
             } message: {
-                Text("Are you sure you want to delete all meditation sessions? This action cannot be undone and will also remove sessions from your Health app.")
+                Text("Are you sure you want to delete all meditation sessions from BeMindful? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
             }
         }
         .sheet(item: $selectedSession) { session in
@@ -58,17 +57,17 @@ struct SessionHistoryView: View {
     }
     
     private func deleteSession(at offsets: IndexSet) {
-        let reversedSessions = meditationManager.sessions.reversed()
+        let reversedSessions = sessionManager.sessions.reversed()
         for index in offsets {
             let sessionIndex = Array(reversedSessions).indices[index]
             let session = Array(reversedSessions)[sessionIndex]
-            meditationManager.deleteSession(session)
+            sessionManager.deleteSession(session)
         }
     }
 }
 
 struct SessionSummaryStatsView: View {
-    let sessions: [MeditationSession]
+    let sessions: [Session]
     
     private var totalSessions: Int {
         sessions.count
@@ -211,7 +210,7 @@ struct EmptyHistoryView: View {
 }
 
 struct SessionRowView: View {
-    let session: MeditationSession
+    let session: Session
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -245,16 +244,14 @@ struct SessionRowView: View {
                             .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
                     }
                     
-                    // Health data indicator
-                    if !session.heartRateData.isEmpty || !session.breathingRateData.isEmpty {
-                        HStack {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.red)
-                                .font(.caption2)
-                            Text("Health Data")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
+                    // Health app sync indicator
+                    HStack {
+                        Image(systemName: "heart.fill")
+                            .foregroundColor(.green)
+                            .font(.caption2)
+                        Text("Health Sync")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -289,8 +286,8 @@ struct SessionRowView: View {
 }
 
 struct SessionDetailView: View {
-    let session: MeditationSession
-    @EnvironmentObject var meditationManager: MeditationManager
+    let session: Session
+    @EnvironmentObject var sessionManager: SessionManager
     @Environment(\.presentationMode) var presentationMode
     @State private var showingDeleteAlert = false
     
@@ -301,18 +298,8 @@ struct SessionDetailView: View {
                     // Session Summary
                     SessionSummaryCard(session: session)
                     
-                    // Heart Rate Chart
-                    if !session.heartRateData.isEmpty {
-                        HeartRateChartView(session: session)
-                    }
-                    
-                    // Breathing Rate Chart  
-                    if !session.breathingRateData.isEmpty {
-                        BreathingRateChartView(session: session)
-                    }
-                    
-                    // Additional metrics
-                    MetricsCardView(session: session)
+                    // Session insights
+                    SessionInsightsCard(session: session)
                 }
                 .padding()
             }
@@ -329,18 +316,18 @@ struct SessionDetailView: View {
             .alert("Delete Session", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
-                    meditationManager.deleteSession(session)
+                    sessionManager.deleteSession(session)
                     presentationMode.wrappedValue.dismiss()
                 }
             } message: {
-                Text("Are you sure you want to delete this meditation session? This action cannot be undone and will also remove the session from your Health app.")
+                Text("Are you sure you want to delete this meditation session from BeMindful? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
             }
         }
     }
 }
 
 struct SessionSummaryCard: View {
-    let session: MeditationSession
+    let session: Session
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -368,6 +355,13 @@ struct SessionSummaryCard: View {
                     Text("\(Int(session.completionPercentage * 100))%")
                         .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
                 }
+                
+                HStack {
+                    Label("Health Sync", systemImage: "heart.fill")
+                    Spacer()
+                    Text("Synced")
+                        .foregroundColor(.green)
+                }
             }
         }
         .padding()
@@ -376,178 +370,53 @@ struct SessionSummaryCard: View {
     }
 }
 
-struct HeartRateChartView: View {
-    let session: MeditationSession
-    
-    private var chartData: [ChartDataPoint] {
-        session.heartRateData.map { dataPoint in
-            ChartDataPoint(
-                time: dataPoint.timestamp.timeIntervalSince(session.startDate),
-                value: dataPoint.value
-            )
-        }
-    }
+struct SessionInsightsCard: View {
+    let session: Session
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Heart Rate")
-                    .font(.headline)
-                Spacer()
-                if let avgHeartRate = session.averageHeartRate {
-                    Text("Avg: \(Int(avgHeartRate)) BPM")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            if #available(iOS 16.0, *) {
-                Chart(chartData) { dataPoint in
-                    LineMark(
-                        x: .value("Time", dataPoint.time),
-                        y: .value("Heart Rate", dataPoint.value)
-                    )
-                    .foregroundStyle(.red)
-                }
-                .frame(height: 200)
-                .chartXAxis {
-                    AxisMarks(values: .automatic) { value in
-                        AxisValueLabel {
-                            if let minutes = value.as(Double.self) {
-                                Text("\(Int(minutes/60))m")
-                            }
-                        }
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(values: .automatic) { value in
-                        AxisValueLabel {
-                            if let bpm = value.as(Double.self) {
-                                Text("\(Int(bpm))")
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Fallback for older iOS versions
-                SimpleLineChart(data: chartData, color: .red)
-                    .frame(height: 200)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-    }
-}
-
-struct BreathingRateChartView: View {
-    let session: MeditationSession
-    
-    private var chartData: [ChartDataPoint] {
-        session.breathingRateData.map { dataPoint in
-            ChartDataPoint(
-                time: dataPoint.timestamp.timeIntervalSince(session.startDate),
-                value: dataPoint.value
-            )
-        }
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Breathing Rate")
-                    .font(.headline)
-                Spacer()
-                if let avgBreathingRate = session.averageBreathingRate {
-                    Text("Avg: \(Int(avgBreathingRate)) RPM")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            if #available(iOS 16.0, *) {
-                Chart(chartData) { dataPoint in
-                    LineMark(
-                        x: .value("Time", dataPoint.time),
-                        y: .value("Breathing Rate", dataPoint.value)
-                    )
-                    .foregroundStyle(.blue)
-                }
-                .frame(height: 200)
-                .chartXAxis {
-                    AxisMarks(values: .automatic) { value in
-                        AxisValueLabel {
-                            if let minutes = value.as(Double.self) {
-                                Text("\(Int(minutes/60))m")
-                            }
-                        }
-                    }
-                }
-                .chartYAxis {
-                    AxisMarks(values: .automatic) { value in
-                        AxisValueLabel {
-                            if let rpm = value.as(Double.self) {
-                                Text("\(Int(rpm))")
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Fallback for older iOS versions
-                SimpleLineChart(data: chartData, color: .blue)
-                    .frame(height: 200)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-    }
-}
-
-struct MetricsCardView: View {
-    let session: MeditationSession
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Metrics")
+            Text("Session Insights")
                 .font(.headline)
             
-            HStack(spacing: 20) {
-                VStack {
-                    Text("\(session.heartRateData.count)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.red)
-                    Text("Heart Rate\nReadings")
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
+            VStack(spacing: 12) {
+                if session.isCompleted {
+                    InsightRow(
+                        icon: "checkmark.circle.fill",
+                        title: "Session Completed",
+                        description: "Great job finishing your full meditation session!",
+                        color: .green
+                    )
+                } else {
+                    InsightRow(
+                        icon: "clock.badge.exclamationmark",
+                        title: "Session Ended Early",
+                        description: "You completed \(Int(session.completionPercentage * 100))% of your planned session.",
+                        color: .orange
+                    )
                 }
                 
-                Spacer()
-                
-                VStack {
-                    Text("\(session.breathingRateData.count)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
-                    Text("Breathing\nReadings")
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack {
-                    Text(session.isCompleted ? "✓" : "○")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(session.isCompleted ? .green : .gray)
-                    Text("Session\nCompleted")
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
+                let durationMinutes = Int(session.effectiveDuration) / 60
+                if durationMinutes >= 20 {
+                    InsightRow(
+                        icon: "star.fill",
+                        title: "Extended Practice",
+                        description: "Longer sessions can deepen your meditation practice.",
+                        color: .blue
+                    )
+                } else if durationMinutes >= 10 {
+                    InsightRow(
+                        icon: "leaf.fill",
+                        title: "Good Practice",
+                        description: "Regular 10+ minute sessions build mindfulness habits.",
+                        color: .green
+                    )
+                } else {
+                    InsightRow(
+                        icon: "seedling",
+                        title: "Getting Started",
+                        description: "Even short sessions are beneficial for building consistency.",
+                        color: .mint
+                    )
                 }
             }
         }
@@ -557,49 +426,36 @@ struct MetricsCardView: View {
     }
 }
 
-// MARK: - Supporting Types
-
-struct ChartDataPoint: Identifiable {
-    let id = UUID()
-    let time: TimeInterval
-    let value: Double
-}
-
-// Simple fallback chart for iOS < 16
-struct SimpleLineChart: View {
-    let data: [ChartDataPoint]
+struct InsightRow: View {
+    let icon: String
+    let title: String
+    let description: String
     let color: Color
     
     var body: some View {
-        GeometryReader { geometry in
-            Path { path in
-                guard !data.isEmpty else { return }
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .font(.title3)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
                 
-                let maxTime = data.map(\.time).max() ?? 1
-                let maxValue = data.map(\.value).max() ?? 1
-                let minValue = data.map(\.value).min() ?? 0
-                
-                let xScale = geometry.size.width / maxTime
-                let yScale = geometry.size.height / (maxValue - minValue)
-                
-                for (index, point) in data.enumerated() {
-                    let x = point.time * xScale
-                    let y = geometry.size.height - ((point.value - minValue) * yScale)
-                    
-                    if index == 0 {
-                        path.move(to: CGPoint(x: x, y: y))
-                    } else {
-                        path.addLine(to: CGPoint(x: x, y: y))
-                    }
-                }
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .stroke(color, lineWidth: 2)
+            
+            Spacer()
         }
     }
 }
 
 #Preview {
     SessionHistoryView()
-        .environmentObject(MeditationManager())
+        .environmentObject(SessionManager())
         .environmentObject(HealthKitManager())
 } 

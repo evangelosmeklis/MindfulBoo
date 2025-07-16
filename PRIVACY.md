@@ -1,8 +1,10 @@
-# Privacy Policy for MindfulBoo
+# Privacy Policy for BeMindful
+
+*Last updated: July 2025*
 
 ## Overview
 
-MindfulBoo is designed with your privacy in mind. We believe in transparency and want you to understand exactly how your data is used.
+BeMindful is designed with your privacy in mind. We believe in transparency and want you to understand exactly how your data is used.
 
 ## Data Collection and Usage
 
@@ -30,7 +32,7 @@ MindfulBoo is designed with your privacy in mind. We believe in transparency and
 
 ## Third-Party Services
 
-**None.** MindfulBoo does not use any third-party services, APIs, or analytics platforms.
+**None.** BeMindful does not use any third-party services, APIs, or analytics platforms.
 
 ## Data Storage
 
@@ -71,7 +73,7 @@ Local notifications only for:
 
 ## Children's Privacy
 
-MindfulBoo does not knowingly collect data from children under 13. The app is designed for general mindfulness practice suitable for all ages.
+BeMindful does not knowingly collect data from children under 13. The app is designed for general mindfulness practice suitable for all ages.
 
 ## Changes to This Policy
 
@@ -79,8 +81,8 @@ Any updates to this privacy policy will be reflected in the app's next update wi
 
 ## Open Source
 
-MindfulBoo is open source. You can review the entire codebase at:
-https://github.com/evangelosmeklis/mindfulboo
+BeMindful is open source. You can review the entire codebase at:
+https://github.com/evangelosmeklis/bemindful
 
 ## Contact
 

@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "58C29C062E26C59100F66732"
-               BuildableName = "mediation.app"
-               BlueprintName = "mediation"
-               ReferencedContainer = "container:mediation.xcodeproj">
+               BuildableName = "bemindful.app"
+               BlueprintName = "bemindful"
+               ReferencedContainer = "container:bemindful.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "58C29C142E26C59200F66732"
-               BuildableName = "mediationTests.xctest"
-               BlueprintName = "mediationTests"
-               ReferencedContainer = "container:mediation.xcodeproj">
+               BuildableName = "bemindfulTests.xctest"
+               BlueprintName = "bemindfulTests"
+               ReferencedContainer = "container:bemindful.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -47,9 +47,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "58C29C1E2E26C59200F66732"
-               BuildableName = "mediationUITests.xctest"
-               BlueprintName = "mediationUITests"
-               ReferencedContainer = "container:mediation.xcodeproj">
+               BuildableName = "bemindfulUITests.xctest"
+               BlueprintName = "bemindfulUITests"
+               ReferencedContainer = "container:bemindful.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -69,9 +69,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "58C29C062E26C59100F66732"
-            BuildableName = "mediation.app"
-            BlueprintName = "mediation"
-            ReferencedContainer = "container:mediation.xcodeproj">
+            BuildableName = "bemindful.app"
+            BlueprintName = "bemindful"
+            ReferencedContainer = "container:bemindful.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -86,9 +86,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "58C29C062E26C59100F66732"
-            BuildableName = "mediation.app"
-            BlueprintName = "mediation"
-            ReferencedContainer = "container:mediation.xcodeproj">
+            BuildableName = "bemindful.app"
+            BlueprintName = "bemindful"
+            ReferencedContainer = "container:bemindful.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

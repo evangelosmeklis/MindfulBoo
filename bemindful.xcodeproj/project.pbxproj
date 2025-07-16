@@ -21,60 +21,28 @@
 			remoteGlobalIDString = 58C29C062E26C59100F66732;
 			remoteInfo = mediation;
 		};
-		58C29F7D2E26DCB300F66732 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 58C29BFF2E26C59100F66732 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 58C29F6F2E26DCB200F66732;
-			remoteInfo = "meditation Watch App";
-		};
-		58C29F872E26DCB300F66732 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 58C29BFF2E26C59100F66732 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 58C29F6F2E26DCB200F66732;
-			remoteInfo = "meditation Watch App";
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		58C29C072E26C59100F66732 /* mediation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mediation.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29C152E26C59200F66732 /* mediationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mediationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29C1F2E26C59200F66732 /* mediationUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mediationUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29F702E26DCB200F66732 /* meditation Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "meditation Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29F7C2E26DCB300F66732 /* meditation Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "meditation Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		58C29F862E26DCB300F66732 /* meditation Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "meditation Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C072E26C59100F66732 /* bemindful.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bemindful.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C152E26C59200F66732 /* bemindfulTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = bemindfulTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = bemindfulUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		58C29C092E26C59100F66732 /* mediation */ = {
+		58C29C092E26C59100F66732 /* BeMindful */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = mediation;
+			path = BeMindful;
 			sourceTree = "<group>";
 		};
-		58C29C182E26C59200F66732 /* mediationTests */ = {
+		58C29C182E26C59200F66732 /* BeMindfulTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = mediationTests;
+			path = BeMindfulTests;
 			sourceTree = "<group>";
 		};
-		58C29C222E26C59200F66732 /* mediationUITests */ = {
+		58C29C222E26C59200F66732 /* BeMindfulUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = mediationUITests;
-			sourceTree = "<group>";
-		};
-		58C29F712E26DCB200F66732 /* meditation Watch App */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "meditation Watch App";
-			sourceTree = "<group>";
-		};
-		58C29F7F2E26DCB300F66732 /* meditation Watch AppTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "meditation Watch AppTests";
-			sourceTree = "<group>";
-		};
-		58C29F892E26DCB300F66732 /* meditation Watch AppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "meditation Watch AppUITests";
+			path = BeMindfulUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -101,39 +69,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		58C29F6D2E26DCB200F66732 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F792E26DCB300F66732 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F832E26DCB300F66732 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		58C29BFE2E26C59100F66732 = {
 			isa = PBXGroup;
 			children = (
-				58C29C092E26C59100F66732 /* mediation */,
-				58C29C182E26C59200F66732 /* mediationTests */,
-				58C29C222E26C59200F66732 /* mediationUITests */,
-				58C29F712E26DCB200F66732 /* meditation Watch App */,
-				58C29F7F2E26DCB300F66732 /* meditation Watch AppTests */,
-				58C29F892E26DCB300F66732 /* meditation Watch AppUITests */,
+				58C29C092E26C59100F66732 /* BeMindful */,
+				58C29C182E26C59200F66732 /* BeMindfulTests */,
+				58C29C222E26C59200F66732 /* BeMindfulUITests */,
 				58C29C082E26C59100F66732 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -141,12 +85,9 @@
 		58C29C082E26C59100F66732 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				58C29C072E26C59100F66732 /* mediation.app */,
-				58C29C152E26C59200F66732 /* mediationTests.xctest */,
-				58C29C1F2E26C59200F66732 /* mediationUITests.xctest */,
-				58C29F702E26DCB200F66732 /* meditation Watch App.app */,
-				58C29F7C2E26DCB300F66732 /* meditation Watch AppTests.xctest */,
-				58C29F862E26DCB300F66732 /* meditation Watch AppUITests.xctest */,
+				58C29C072E26C59100F66732 /* bemindful.app */,
+				58C29C152E26C59200F66732 /* bemindfulTests.xctest */,
+				58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -154,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		58C29C062E26C59100F66732 /* mediation */ = {
+		58C29C062E26C59100F66732 /* bemindful */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediation" */;
+			buildConfigurationList = 58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindful" */;
 			buildPhases = (
 				58C29C032E26C59100F66732 /* Sources */,
 				58C29C042E26C59100F66732 /* Frameworks */,
@@ -167,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C092E26C59100F66732 /* mediation */,
+				58C29C092E26C59100F66732 /* BeMindful */,
 			);
-			name = mediation;
+			name = bemindful;
 			packageProductDependencies = (
 			);
-			productName = mediation;
-			productReference = 58C29C072E26C59100F66732 /* mediation.app */;
+			productName = BeMindful;
+			productReference = 58C29C072E26C59100F66732 /* bemindful.app */;
 			productType = "com.apple.product-type.application";
 		};
-		58C29C142E26C59200F66732 /* mediationTests */ = {
+		58C29C142E26C59200F66732 /* bemindfulTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediationTests" */;
+			buildConfigurationList = 58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulTests" */;
 			buildPhases = (
 				58C29C112E26C59200F66732 /* Sources */,
 				58C29C122E26C59200F66732 /* Frameworks */,
@@ -190,18 +131,18 @@
 				58C29C172E26C59200F66732 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C182E26C59200F66732 /* mediationTests */,
+				58C29C182E26C59200F66732 /* BeMindfulTests */,
 			);
-			name = mediationTests;
+			name = bemindfulTests;
 			packageProductDependencies = (
 			);
-			productName = mediationTests;
-			productReference = 58C29C152E26C59200F66732 /* mediationTests.xctest */;
+			productName = BeMindfulTests;
+			productReference = 58C29C152E26C59200F66732 /* bemindfulTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		58C29C1E2E26C59200F66732 /* mediationUITests */ = {
+		58C29C1E2E26C59200F66732 /* bemindfulUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediationUITests" */;
+			buildConfigurationList = 58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulUITests" */;
 			buildPhases = (
 				58C29C1B2E26C59200F66732 /* Sources */,
 				58C29C1C2E26C59200F66732 /* Frameworks */,
@@ -213,81 +154,13 @@
 				58C29C212E26C59200F66732 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				58C29C222E26C59200F66732 /* mediationUITests */,
+				58C29C222E26C59200F66732 /* BeMindfulUITests */,
 			);
-			name = mediationUITests;
+			name = bemindfulUITests;
 			packageProductDependencies = (
 			);
-			productName = mediationUITests;
-			productReference = 58C29C1F2E26C59200F66732 /* mediationUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
-		58C29F6F2E26DCB200F66732 /* meditation Watch App */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29F942E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch App" */;
-			buildPhases = (
-				58C29F6C2E26DCB200F66732 /* Sources */,
-				58C29F6D2E26DCB200F66732 /* Frameworks */,
-				58C29F6E2E26DCB200F66732 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				58C29F712E26DCB200F66732 /* meditation Watch App */,
-			);
-			name = "meditation Watch App";
-			packageProductDependencies = (
-			);
-			productName = "meditation Watch App";
-			productReference = 58C29F702E26DCB200F66732 /* meditation Watch App.app */;
-			productType = "com.apple.product-type.application";
-		};
-		58C29F7B2E26DCB300F66732 /* meditation Watch AppTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29F952E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch AppTests" */;
-			buildPhases = (
-				58C29F782E26DCB300F66732 /* Sources */,
-				58C29F792E26DCB300F66732 /* Frameworks */,
-				58C29F7A2E26DCB300F66732 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				58C29F7E2E26DCB300F66732 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				58C29F7F2E26DCB300F66732 /* meditation Watch AppTests */,
-			);
-			name = "meditation Watch AppTests";
-			packageProductDependencies = (
-			);
-			productName = "meditation Watch AppTests";
-			productReference = 58C29F7C2E26DCB300F66732 /* meditation Watch AppTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		58C29F852E26DCB300F66732 /* meditation Watch AppUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 58C29F962E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch AppUITests" */;
-			buildPhases = (
-				58C29F822E26DCB300F66732 /* Sources */,
-				58C29F832E26DCB300F66732 /* Frameworks */,
-				58C29F842E26DCB300F66732 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				58C29F882E26DCB300F66732 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				58C29F892E26DCB300F66732 /* meditation Watch AppUITests */,
-			);
-			name = "meditation Watch AppUITests";
-			packageProductDependencies = (
-			);
-			productName = "meditation Watch AppUITests";
-			productReference = 58C29F862E26DCB300F66732 /* meditation Watch AppUITests.xctest */;
+			productName = BeMindfulUITests;
+			productReference = 58C29C1F2E26C59200F66732 /* bemindfulUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -311,20 +184,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 58C29C062E26C59100F66732;
 					};
-					58C29F6F2E26DCB200F66732 = {
-						CreatedOnToolsVersion = 16.4;
-					};
-					58C29F7B2E26DCB300F66732 = {
-						CreatedOnToolsVersion = 16.4;
-						TestTargetID = 58C29F6F2E26DCB200F66732;
-					};
-					58C29F852E26DCB300F66732 = {
-						CreatedOnToolsVersion = 16.4;
-						TestTargetID = 58C29F6F2E26DCB200F66732;
-					};
 				};
 			};
-			buildConfigurationList = 58C29C022E26C59100F66732 /* Build configuration list for PBXProject "mediation" */;
+			buildConfigurationList = 58C29C022E26C59100F66732 /* Build configuration list for PBXProject "bemindful" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -338,12 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				58C29C062E26C59100F66732 /* mediation */,
-				58C29C142E26C59200F66732 /* mediationTests */,
-				58C29C1E2E26C59200F66732 /* mediationUITests */,
-				58C29F6F2E26DCB200F66732 /* meditation Watch App */,
-				58C29F7B2E26DCB300F66732 /* meditation Watch AppTests */,
-				58C29F852E26DCB300F66732 /* meditation Watch AppUITests */,
+				58C29C062E26C59100F66732 /* bemindful */,
+				58C29C142E26C59200F66732 /* bemindfulTests */,
+				58C29C1E2E26C59200F66732 /* bemindfulUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -364,27 +223,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		58C29C1D2E26C59200F66732 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F6E2E26DCB200F66732 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F7A2E26DCB300F66732 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F842E26DCB300F66732 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -415,49 +253,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		58C29F6C2E26DCB200F66732 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F782E26DCB300F66732 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		58C29F822E26DCB300F66732 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		58C29C172E26C59200F66732 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 58C29C062E26C59100F66732 /* mediation */;
+			target = 58C29C062E26C59100F66732 /* bemindful */;
 			targetProxy = 58C29C162E26C59200F66732 /* PBXContainerItemProxy */;
 		};
 		58C29C212E26C59200F66732 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 58C29C062E26C59100F66732 /* mediation */;
+			target = 58C29C062E26C59100F66732 /* bemindful */;
 			targetProxy = 58C29C202E26C59200F66732 /* PBXContainerItemProxy */;
-		};
-		58C29F7E2E26DCB300F66732 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 58C29F6F2E26DCB200F66732 /* meditation Watch App */;
-			targetProxy = 58C29F7D2E26DCB300F66732 /* PBXContainerItemProxy */;
-		};
-		58C29F882E26DCB300F66732 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 58C29F6F2E26DCB200F66732 /* meditation Watch App */;
-			targetProxy = 58C29F872E26DCB300F66732 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -583,7 +390,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = mediation/mediation.entitlements;
+				CODE_SIGN_ENTITLEMENTS = BeMindful/BeMindful.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6AWG6XKD86;
@@ -607,7 +414,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediation;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.bemindful;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -624,7 +431,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = mediation/mediation.entitlements;
+				CODE_SIGN_ENTITLEMENTS = BeMindful/BeMindful.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6AWG6XKD86;
@@ -648,7 +455,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediation;
+				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.bemindful;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -678,7 +485,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mediation.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/mediation";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/bemindful.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/bemindful";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Debug;
@@ -701,7 +508,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mediation.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/mediation";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/bemindful.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/bemindful";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Release;
@@ -750,155 +557,10 @@
 			};
 			name = Release;
 		};
-		58C29F8E2E26DCB300F66732 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "meditation Watch App/meditation_Watch_App.entitlements";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = meditation;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "This watch app needs to read your health data to track meditation sessions and provide insights about your wellness journey.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This watch app needs to save your meditation sessions to HealthKit to track your mindfulness practice and wellness progress.";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = evangelosmeklis.mediation;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediation.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Debug;
-		};
-		58C29F8F2E26DCB300F66732 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "meditation Watch App/meditation_Watch_App.entitlements";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = meditation;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "This watch app needs to read your health data to track meditation sessions and provide insights about your wellness journey.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This watch app needs to save your meditation sessions to HealthKit to track your mindfulness practice and wellness progress.";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = evangelosmeklis.mediation;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = evangelosmeklis.mediation.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				VALIDATE_PRODUCT = YES;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Release;
-		};
-		58C29F902E26DCB300F66732 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "evangelosmeklis.meditation-Watch-AppTests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/meditation Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/meditation Watch App";
-				WATCHOS_DEPLOYMENT_TARGET = 11.5;
-			};
-			name = Debug;
-		};
-		58C29F912E26DCB300F66732 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "evangelosmeklis.meditation-Watch-AppTests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/meditation Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/meditation Watch App";
-				VALIDATE_PRODUCT = YES;
-				WATCHOS_DEPLOYMENT_TARGET = 11.5;
-			};
-			name = Release;
-		};
-		58C29F922E26DCB300F66732 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "evangelosmeklis.meditation-Watch-AppUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				TEST_TARGET_NAME = "meditation Watch App";
-				WATCHOS_DEPLOYMENT_TARGET = 11.5;
-			};
-			name = Debug;
-		};
-		58C29F932E26DCB300F66732 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6AWG6XKD86;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "evangelosmeklis.meditation-Watch-AppUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				TEST_TARGET_NAME = "meditation Watch App";
-				VALIDATE_PRODUCT = YES;
-				WATCHOS_DEPLOYMENT_TARGET = 11.5;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		58C29C022E26C59100F66732 /* Build configuration list for PBXProject "mediation" */ = {
+		58C29C022E26C59100F66732 /* Build configuration list for PBXProject "bemindful" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C272E26C59200F66732 /* Debug */,
@@ -907,7 +569,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediation" */ = {
+		58C29C292E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindful" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C2A2E26C59200F66732 /* Debug */,
@@ -916,7 +578,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediationTests" */ = {
+		58C29C2C2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C2D2E26C59200F66732 /* Debug */,
@@ -925,38 +587,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "mediationUITests" */ = {
+		58C29C2F2E26C59200F66732 /* Build configuration list for PBXNativeTarget "bemindfulUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				58C29C302E26C59200F66732 /* Debug */,
 				58C29C312E26C59200F66732 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		58C29F942E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch App" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				58C29F8E2E26DCB300F66732 /* Debug */,
-				58C29F8F2E26DCB300F66732 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		58C29F952E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch AppTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				58C29F902E26DCB300F66732 /* Debug */,
-				58C29F912E26DCB300F66732 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		58C29F962E26DCB300F66732 /* Build configuration list for PBXNativeTarget "meditation Watch AppUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				58C29F922E26DCB300F66732 /* Debug */,
-				58C29F932E26DCB300F66732 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

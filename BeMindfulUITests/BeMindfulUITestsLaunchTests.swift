@@ -1,13 +1,13 @@
 //
-//  mediationUITestsLaunchTests.swift
-//  mediationUITests
+//  BeMindfulUITestsLaunchTests.swift
+//  BeMindfulUITests
 //
 //  Created by Evangelos Meklis on 15/7/25.
 //
 
 import XCTest
 
-final class mediationUITestsLaunchTests: XCTestCase {
+final class BeMindfulUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
