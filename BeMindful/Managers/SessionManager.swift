@@ -1,6 +1,8 @@
 import Foundation
 import Combine
 import AVFoundation
+import UserNotifications
+import UIKit
 
 class SessionManager: ObservableObject {
     @Published var isSessionActive = false
@@ -13,9 +15,13 @@ class SessionManager: ObservableObject {
     private var timer: Timer?
     private var sessionDuration: TimeInterval = 0
     private var startTime: Date?
+    private var sessionEndTime: Date?
     private var audioPlayer: AVAudioPlayer?
     private var cancellables = Set<AnyCancellable>()
     private var healthManager: HealthKitManager?
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private var notificationIdentifier = "meditation_session_complete"
+
     
     var formattedTimeRemaining: String {
         let minutes = Int(timeRemaining) / 60
@@ -53,6 +59,7 @@ class SessionManager: ObservableObject {
         sessionDuration = duration
         timeRemaining = duration
         startTime = Date()
+        sessionEndTime = Date().addingTimeInterval(duration)
         isSessionActive = true
         progress = 0
         
@@ -65,6 +72,18 @@ class SessionManager: ObservableObject {
             duration: duration,
             endDate: nil
         )
+        
+        // Request notification permissions and schedule completion notification
+        requestNotificationPermissions()
+        scheduleSessionCompletionNotification(duration: duration)
+        
+        // Start background task to keep timer running
+        startBackgroundTask()
+        
+        // Setup background/foreground observers
+        setupAppStateObservers()
+        
+
         
         // Start main session timer
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -80,6 +99,15 @@ class SessionManager: ObservableObject {
         timer?.invalidate()
         timer = nil
         isSessionActive = false
+        
+        // Cancel scheduled notification since session is ending
+        cancelSessionNotification()
+        
+        // End background task
+        endBackgroundTask()
+        
+        // Remove app state observers
+        removeAppStateObservers()
         
         // Complete current session
         if var session = currentSession {
@@ -102,6 +130,8 @@ class SessionManager: ObservableObject {
             currentSession = nil
         }
         
+
+        
         // Play completion sound
         playCompletionSound()
         
@@ -109,15 +139,19 @@ class SessionManager: ObservableObject {
     }
     
     private func updateTimer() {
-        guard let startTime = startTime else { return }
+        guard let startTime = startTime, isSessionActive else { return }
         
         let elapsed = Date().timeIntervalSince(startTime)
         timeRemaining = max(0, sessionDuration - elapsed)
         progress = min(1.0, elapsed / sessionDuration)
         
+
+        
         // Check if session should end
         if timeRemaining <= 0 {
-            stopSession()
+            DispatchQueue.main.async {
+                self.stopSession()
+            }
         }
     }
     
@@ -168,6 +202,195 @@ class SessionManager: ObservableObject {
             print("Failed to load sessions: \(error)")
         }
     }
+    
+    // MARK: - Background & Notification Support
+    
+    private func requestNotificationPermissions() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error)")
+            } else {
+                print("Notification permission granted: \(granted)")
+                
+                // Setup notification categories for better UX
+                if granted {
+                    self.setupNotificationCategories()
+                }
+            }
+        }
+    }
+    
+    private func setupNotificationCategories() {
+        let completeAction = UNNotificationAction(
+            identifier: "COMPLETE_ACTION",
+            title: "Mark Complete",
+            options: [.foreground]
+        )
+        
+        let extendAction = UNNotificationAction(
+            identifier: "EXTEND_ACTION", 
+            title: "Extend 5 min",
+            options: []
+        )
+        
+        let category = UNNotificationCategory(
+            identifier: "MEDITATION_COMPLETE",
+            actions: [completeAction, extendAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+    
+    private func scheduleSessionCompletionNotification(duration: TimeInterval) {
+        let content = UNMutableNotificationContent()
+        content.title = "🧘‍♀️ Meditation Complete"
+        content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
+        content.sound = UNNotificationSound.default
+        content.badge = 1
+        content.categoryIdentifier = "MEDITATION_COMPLETE"
+        
+        // Add multiple notification strategies for reliability
+        content.userInfo = [
+            "sessionId": currentSession?.id.uuidString ?? "",
+            "sessionDuration": duration,
+            "startTime": Date().timeIntervalSince1970
+        ]
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: duration, repeats: false)
+        let request = UNNotificationRequest(identifier: notificationIdentifier, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Failed to schedule notification: \(error)")
+            } else {
+                print("Scheduled completion notification for \(duration/60) minutes")
+            }
+        }
+        
+        // Also schedule intermediate notifications to keep the session alive
+        scheduleKeepAliveNotifications(duration: duration)
+    }
+    
+    private func scheduleKeepAliveNotifications(duration: TimeInterval) {
+        // Schedule progress notifications to keep user informed
+        let progressIntervals: [TimeInterval] = [
+            duration * 0.25,  // 25% complete
+            duration * 0.5,   // 50% complete  
+            duration * 0.75   // 75% complete
+        ]
+        
+        for (index, interval) in progressIntervals.enumerated() {
+            let content = UNMutableNotificationContent()
+            let percentage = Int((Double(index + 1) * 25))
+            content.title = "Meditation Progress"
+            content.body = "\(percentage)% complete - Keep focusing on your breath"
+            content.sound = nil
+            content.badge = nil
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "progress_\(percentage)", 
+                content: content, 
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { _ in }
+        }
+        
+        // Also add a 2-minute warning for longer sessions
+        if duration > 300 { // 5+ minutes
+            let content = UNMutableNotificationContent()
+            content.title = "Almost Done"
+            content.body = "2 minutes remaining in your meditation"
+            content.sound = UNNotificationSound.default
+            content.badge = nil
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: duration - 120, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: "two_minute_warning", 
+                content: content, 
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { _ in }
+        }
+    }
+    
+    private func cancelSessionNotification() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationIdentifier])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationIdentifier])
+        
+        // Also cancel all progress notifications
+        let progressIds = ["progress_25", "progress_50", "progress_75", "two_minute_warning"]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: progressIds)
+        
+        print("Cancelled session notification and progress notifications")
+    }
+    
+    private func startBackgroundTask() {
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MeditationTimer") { [weak self] in
+            self?.endBackgroundTask()
+        }
+        print("Started background task: \(backgroundTaskID.rawValue)")
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+            print("Ended background task")
+        }
+    }
+    
+    private func setupAppStateObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    private func removeAppStateObservers() {
+        NotificationCenter.default.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
+    
+    @objc private func appDidEnterBackground() {
+        print("App entered background during meditation session")
+        // Timer continues running in background for a limited time
+        // Notification will alert user when session completes
+    }
+    
+    @objc private func appWillEnterForeground() {
+        print("App returning to foreground during meditation session")
+        
+        // Check if session should have completed while in background
+        guard isSessionActive, let sessionEndTime = sessionEndTime else { return }
+        
+        let now = Date()
+        if now >= sessionEndTime {
+            // Session completed while in background
+            print("Session completed while in background, stopping now")
+            DispatchQueue.main.async {
+                self.stopSession()
+            }
+        } else {
+            // Update timer to reflect current state
+            updateTimer()
+        }
+    }
+    
+
 }
 
 import AudioToolbox
