@@ -19,7 +19,6 @@ BeMindful is designed with your privacy in mind. We believe in transparency and 
 - **What we collect**: 
   - Meditation session duration and timestamps
   - Session completion rates and statistics
-  - Heart rate and respiratory rate during sessions
 - **Why**: To track your meditation progress and provide meaningful insights
 - **Storage**: Stored locally on your device using UserDefaults and synced to Apple Health
 
@@ -50,12 +49,6 @@ BeMindful is designed with your privacy in mind. We believe in transparency and 
 Local notifications only for:
 - Session completion alerts
 - Meditation reminders (if implemented)
-
-## Apple Watch Integration
-
-- **Processing**: All data processing happens locally on your iPhone
-- **Transmission**: Data flows directly from Apple Watch to iPhone via standard HealthKit APIs
-- **No external transmission**: Biometric data never leaves your devices
 
 ## Data Sharing
 

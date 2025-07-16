@@ -14,7 +14,6 @@ A simple and fast meditation app for iOS.
 
 ## What We've Built
 
-- ✅ **Removed Apple Watch App**: Simplified to iPhone-only with Watch integration
 - ✅ **Enhanced UI**: Permission status displays, refresh buttons, debug tools
 - ✅ **Robust Permission Handling**: Tests actual data access beyond reported status
 - ✅ **Session Analytics**: Charts, averages, and completion statistics
