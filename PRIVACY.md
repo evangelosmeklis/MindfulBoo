@@ -10,8 +10,6 @@ BeMindful is designed with your privacy in mind. We believe in transparency and 
 
 ### Health Data
 - **What we collect**: 
-  - Heart rate data from Apple Watch during meditation sessions
-  - Respiratory rate data from Apple Watch (when available)
   - Mindfulness session records (duration, completion status)
 - **Why**: To provide real-time biometric feedback during meditation and track your mindfulness practice
 - **How it's used**: Read from and written to Apple HealthKit for session tracking and analysis
@@ -45,7 +43,6 @@ BeMindful is designed with your privacy in mind. We believe in transparency and 
 ## Permissions
 
 ### Health (Required for full functionality)
-- **Read**: Heart rate, respiratory rate from Apple Watch
 - **Write**: Mindfulness session records to Apple Health
 - **Purpose**: Real-time biometric monitoring and meditation tracking
 
@@ -56,7 +53,6 @@ Local notifications only for:
 
 ## Apple Watch Integration
 
-- **Data source**: Heart rate and respiratory rate sensors on Apple Watch
 - **Processing**: All data processing happens locally on your iPhone
 - **Transmission**: Data flows directly from Apple Watch to iPhone via standard HealthKit APIs
 - **No external transmission**: Biometric data never leaves your devices

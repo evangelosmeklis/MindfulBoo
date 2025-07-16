@@ -1,11 +1,10 @@
 # 🧘‍♀️ BeMindful
 
-A meditation app for iOS with real-time Apple Watch heart rate and respiratory rate monitoring.
+A simple and fast meditation app for iOS.
 
 ## Features
 
 - **Meditation Timer**: Customizable session durations with audio feedback
-- **Real-time Monitoring**: Heart rate and respiratory rate tracking from Apple Watch
 - **Smart Authorization**: Works even when iOS reports incorrect HealthKit permissions
 - **Session History**: Detailed statistics, charts, and completion tracking
 - **Health Integration**: Automatic syncing to Apple Health app
@@ -16,8 +15,6 @@ A meditation app for iOS with real-time Apple Watch heart rate and respiratory r
 ## What We've Built
 
 - ✅ **Removed Apple Watch App**: Simplified to iPhone-only with Watch integration
-- ✅ **Fixed Heart Rate Monitoring**: Resolved stuck readings and duplicate data issues
-- ✅ **Added Respiratory Rate**: Live breathing rate monitoring during sessions
 - ✅ **Enhanced UI**: Permission status displays, refresh buttons, debug tools
 - ✅ **Robust Permission Handling**: Tests actual data access beyond reported status
 - ✅ **Session Analytics**: Charts, averages, and completion statistics
@@ -42,10 +39,8 @@ A meditation app for iOS with real-time Apple Watch heart rate and respiratory r
 
 ## Usage
 
-1. **Grant Permissions**: Allow HealthKit access for heart rate and mindfulness data
 2. **Start Session**: Set duration and tap "Start Meditation"
 3. **Live Monitoring**: Apple Watch automatically begins tracking biometrics
-4. **View Progress**: Real-time heart rate and respiratory rate display
 5. **Check History**: Detailed session analytics and health data charts
 6. **Health Sync**: All sessions automatically save to Apple Health
 
@@ -53,7 +48,6 @@ A meditation app for iOS with real-time Apple Watch heart rate and respiratory r
 
 - **Smart HealthKit Integration**: Uses actual data access tests instead of unreliable iOS permission reports
 - **Real-time Queries**: HKAnchoredObjectQuery for live biometric updates
-- **Duplicate Prevention**: Only stores unique heart rate readings, not repeated values
 - **Date Filtering**: Focuses on recent data (5 minutes) for accurate monitoring
 - **Error Recovery**: Graceful handling of Watch connectivity and permission issues
 
