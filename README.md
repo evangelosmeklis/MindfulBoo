@@ -1,6 +1,6 @@
 # 🧘‍♀️ MindfulBoo
 
-![MindfulBoo Preview](preview_smaller.png)
+![MindfulBoo Preview](media/preview_smaller.png)
 
 A simple and fast meditation app for iOS.
 
@@ -25,7 +25,6 @@ A simple and fast meditation app for iOS.
 ## Requirements
 
 - iOS 15.0+
-- iPhone with paired Apple Watch (for biometric monitoring)
 - Xcode 14.0+
 
 ## Setup
@@ -40,10 +39,9 @@ A simple and fast meditation app for iOS.
 
 ## Usage
 
-2. **Start Session**: Set duration and tap "Start Meditation"
-3. **Live Monitoring**: Apple Watch automatically begins tracking biometrics
-5. **Check History**: Detailed session analytics and health data charts
-6. **Health Sync**: All sessions automatically save to Apple Health
+1. **Start Session**: Set duration and tap "Start Meditation"
+2. **Check History**: Detailed session analytics and health data charts
+3. **Health Sync**: All sessions automatically save to Apple Health
 
 ## Technical Highlights
 
