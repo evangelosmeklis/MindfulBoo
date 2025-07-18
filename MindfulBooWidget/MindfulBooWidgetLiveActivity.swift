@@ -28,27 +28,63 @@ enum SessionState: String, Codable, Hashable {
     case ended
 }
 
+struct GradientProgressBar: View {
+    var progress: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(height: 6)
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.green, .blue]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geometry.size.width * CGFloat(progress), height: 6)
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
 struct MindfulBooWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: MindfulBooActivityAttributes.self) { context in
             // Lock screen/banner UI
-            VStack(spacing: 16) {
-                HStack {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
                     Image(systemName: "lotus")
                         .font(.title2)
-                    Text("MindfulBoo Session")
+                    Text("MindfulBoo")
                         .font(.headline)
+                        .fontWeight(.semibold)
                 }
-                
-                ProgressView(value: context.state.progress)
-                    .progressViewStyle(.linear)
-                
+                .foregroundColor(.white)
+
+                GradientProgressBar(progress: context.state.progress)
+
                 Text(timerInterval: Date.now...Date.now.addingTimeInterval(context.state.timeRemaining), countsDown: true)
-                    .font(.largeTitle)
-                    .fontWeight(.semibold)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .monospacedDigit()
+                    .foregroundColor(.white)
             }
             .padding()
-            .activityBackgroundTint(Color.black.opacity(0.5))
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [.green, .blue]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(0.9)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .activityBackgroundTint(Color.clear)
             .activitySystemActionForegroundColor(Color.white)
 
         } dynamicIsland: { context in
@@ -64,9 +100,8 @@ struct MindfulBooWidgetLiveActivity: Widget {
                         .fontWeight(.semibold)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(value: context.state.progress)
-                        .progressViewStyle(.linear)
-                        .tint(.white)
+                    GradientProgressBar(progress: context.state.progress)
+                        .frame(maxWidth: .infinity)
                 }
             } compactLeading: {
                 Image(systemName: "lotus")
