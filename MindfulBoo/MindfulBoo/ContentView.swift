@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var selectedHours: Int = 0
     @State private var isTimerPickerPresented = false
     @State private var showingHistory = false
+    @State private var showingSettings = false
     @State private var currentWeather: WeatherCondition = .clear
     @State private var backgroundColors: [Color] = [.blue, .purple]
 
@@ -80,7 +81,8 @@ struct ContentView: View {
                             print("   - Session: \(formatter.string(from: session.startDate))")
                         }
                         
-                        healthStore.calculateConsecutiveDays()
+                        let streakCount = sessionManager.calculateConsecutiveDays()
+                        healthStore.updateConsecutiveDays(streakCount)
                         
                         // Also show debug permissions info
                         healthStore.debugPermissions()
@@ -180,6 +182,18 @@ struct ContentView: View {
                         }
                     }
                     .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button(action: { showingSettings = true }) {
+                        VStack {
+                            Image(systemName: "gear")
+                                .font(.title2)
+                            Text("Settings")
+                                .font(.caption)
+                        }
+                    }
+                    .foregroundColor(.secondary)
                     Spacer()
                 }
                 .padding(.bottom, 30)
@@ -214,6 +228,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingHistory) {
             SessionHistoryView()
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
 
 
         .overlay(
@@ -243,7 +260,8 @@ struct ContentView: View {
         .onAppear {
             updateBackgroundForTimeOfDay()
             // Always calculate consecutive days when view appears
-            healthStore.calculateConsecutiveDays()
+            let streakCount = sessionManager.calculateConsecutiveDays()
+            healthStore.updateConsecutiveDays(streakCount)
             print("🐛 Debug: onAppear called, isAuthorized: \(healthStore.isAuthorized), consecutiveDays: \(healthStore.consecutiveDays)")
             
             // Refresh background every 5 minutes to catch time changes
@@ -253,7 +271,8 @@ struct ContentView: View {
         }
         .onChange(of: healthStore.isAuthorized) { isAuthorized in
             if isAuthorized {
-                healthStore.calculateConsecutiveDays()
+                let streakCount = sessionManager.calculateConsecutiveDays()
+                healthStore.updateConsecutiveDays(streakCount)
                 print("🐛 Debug: Authorization changed to \(isAuthorized), recalculating consecutive days")
             }
         }

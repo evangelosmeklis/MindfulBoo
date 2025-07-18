@@ -7,8 +7,6 @@ class HealthKitManager: ObservableObject {
     @Published var isAuthorized = false
     @Published var lastError: Error?
     @Published var consecutiveDays = 0
-    private var sessionManager: SessionManager?
-    
     private let typesToRead: Set<HKSampleType> = [
         HKCategoryType(.mindfulSession)
     ]
@@ -19,10 +17,6 @@ class HealthKitManager: ObservableObject {
     
     init() {
         checkAuthorizationStatus()
-    }
-    
-    func setSessionManager(_ sessionManager: SessionManager) {
-        self.sessionManager = sessionManager
     }
     
     func forceRefreshPermissions() {
@@ -280,17 +274,13 @@ class HealthKitManager: ObservableObject {
     }
     
     func calculateConsecutiveDays() {
-        print("🔍 calculateConsecutiveDays called - using local session data")
-        
-        // Use SessionManager's session data instead of HealthKit
-        guard let sessionManager = sessionManager else {
-            print("❌ SessionManager not set, setting consecutive days to 0")
-            consecutiveDays = 0
-            return
-        }
-        
-        let streakCount = sessionManager.calculateConsecutiveDays()
-        consecutiveDays = streakCount
-        print("✅ Updated consecutiveDays to: \(consecutiveDays) (from local session data)")
+        print("🔍 calculateConsecutiveDays called - will be handled by SessionManager")
+        // This method will be called by SessionManager to update the streak
+        // The actual calculation is now handled in SessionManager to avoid circular dependency
+    }
+    
+    func updateConsecutiveDays(_ count: Int) {
+        consecutiveDays = count
+        print("✅ Updated consecutiveDays to: \(consecutiveDays)")
     }
 } 

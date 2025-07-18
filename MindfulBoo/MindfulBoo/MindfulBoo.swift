@@ -34,6 +34,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 struct MindfulBooApp: App {
     @StateObject private var healthStore = HealthKitManager()
     @StateObject private var sessionManager = SessionManager()
+    @StateObject private var settingsManager = SettingsManager()
     private let notificationDelegate = NotificationDelegate()
     
     var body: some Scene {
@@ -41,6 +42,7 @@ struct MindfulBooApp: App {
             ContentView()
                 .environmentObject(healthStore)
                 .environmentObject(sessionManager)
+                .environmentObject(settingsManager)
                 .onAppear {
                     // Setup notification delegate
                     UNUserNotificationCenter.current().delegate = notificationDelegate
@@ -48,10 +50,11 @@ struct MindfulBooApp: App {
                     // Connect the managers so they can work together
                     healthStore.requestPermissions()
                     sessionManager.setHealthManager(healthStore)
-                    healthStore.setSessionManager(sessionManager)
+                    sessionManager.setSettingsManager(settingsManager)
                     
                     // Calculate initial streak from existing sessions
-                    healthStore.calculateConsecutiveDays()
+                    let streakCount = sessionManager.calculateConsecutiveDays()
+                    healthStore.updateConsecutiveDays(streakCount)
                     
                     // Give a moment for permissions to be processed, then log status
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
