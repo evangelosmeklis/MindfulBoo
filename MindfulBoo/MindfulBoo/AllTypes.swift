@@ -1061,7 +1061,6 @@ struct ProgressNotificationRow: View {
 struct DailyReminderSettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @State private var showingAddReminder = false
-    @State private var showingEditReminder = false
     @State private var newReminderTime = Date()
     @State private var newReminderMessage = "Time for your daily meditation 🧘‍♀️"
     @State private var reminderToEdit: DailyReminderSettings.DailyReminder?
@@ -1138,7 +1137,6 @@ struct DailyReminderSettingsView: View {
                                     onDelete: { settingsManager.removeDailyReminder(at: index) },
                                     onEdit: {
                                         reminderToEdit = reminder
-                                        showingEditReminder = true
                                     }
                                 )
                             }
@@ -1180,16 +1178,13 @@ struct DailyReminderSettingsView: View {
                 }
             )
         }
-        .sheet(isPresented: $showingEditReminder) {
-            if let reminderToEdit = reminderToEdit {
-                EditReminderView(
-                    reminder: reminderToEdit,
-                    onSave: { editedReminder in
-                        settingsManager.updateDailyReminder(editedReminder)
-                        showingEditReminder = false
-                    }
-                )
-            }
+        .sheet(item: $reminderToEdit) { reminder in
+            EditReminderView(
+                reminder: reminder,
+                onSave: { editedReminder in
+                    settingsManager.updateDailyReminder(editedReminder)
+                }
+            )
         }
     }
 }
