@@ -37,6 +37,10 @@ A simple and fast meditation app for iOS.
 3. Select your development team
 4. Build and run
 
+## Testing Live Activities
+
+Live Activities require a physical device running iOS 16.1 or later. The iOS simulator does not support them, so run the app on an actual device when testing the `MindfulBooWidget` live activity extension.
+
 ## Usage
 
 1. **Start Session**: Set duration and tap "Start Meditation"
