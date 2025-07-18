@@ -40,6 +40,115 @@ class SessionManager: ObservableObject {
         self.healthManager = healthManager
     }
     
+    // MARK: - Streak Calculation
+    
+    func calculateConsecutiveDays() -> Int {
+        print("🔍 Calculating consecutive days from session history...")
+        
+        guard !sessions.isEmpty else {
+            print("⚠️ No sessions found, consecutive days = 0")
+            return 0
+        }
+        
+        let calendar = Calendar.current
+        var consecutive = 0
+        
+        // Group sessions by day (using start date)
+        var sessionsByDay: Set<Date> = []
+        for session in sessions {
+            let dayStart = calendar.startOfDay(for: session.startDate)
+            sessionsByDay.insert(dayStart)
+        }
+        
+        // Sort days in descending order (most recent first)
+        let sortedDays = Array(sessionsByDay).sorted(by: >)
+        
+        // Debug: Log all unique session days
+        print("📅 Session days found (most recent first):")
+        for day in sortedDays.prefix(10) {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            print("   - \(formatter.string(from: day))")
+        }
+        
+        // Check if there's a session today
+        let today = calendar.startOfDay(for: Date())
+        
+        if sessionsByDay.contains(today) {
+            // There's a session today - start counting from today
+            consecutive = 1
+            print("   ✅ Day \(consecutive): Today")
+            
+            // Check previous days for consecutive streak
+            var checkDate = calendar.date(byAdding: .day, value: -1, to: today)!
+            
+            while sessionsByDay.contains(checkDate) {
+                consecutive += 1
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
+                checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
+            }
+        } else {
+            // No session today - check if we can continue streak from yesterday
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+            
+            if sessionsByDay.contains(yesterday) {
+                // There was a session yesterday - streak continues (today hasn't ended yet)
+                consecutive = 1
+                print("   ✅ Day \(consecutive): Yesterday (today hasn't ended yet)")
+                
+                // Check days before yesterday for consecutive streak
+                var checkDate = calendar.date(byAdding: .day, value: -2, to: today)!
+                
+                while sessionsByDay.contains(checkDate) {
+                    consecutive += 1
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
+                    checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
+                }
+            } else {
+                // No session yesterday either - check if streak should be broken
+                // Only break streak if more than 24 hours have passed since last session
+                if let lastSessionDay = sortedDays.first {
+                    let daysSinceLastSession = calendar.dateComponents([.day], from: lastSessionDay, to: today).day ?? 0
+                    
+                    if daysSinceLastSession <= 1 {
+                        // Last session was yesterday or today - maintain streak
+                        consecutive = 1
+                        let formatter = DateFormatter()
+                        formatter.dateStyle = .medium
+                        print("   ✅ Day \(consecutive): \(formatter.string(from: lastSessionDay)) (within 24 hours)")
+                        
+                        // Check previous days
+                        var checkDate = calendar.date(byAdding: .day, value: -1, to: lastSessionDay)!
+                        
+                        while sessionsByDay.contains(checkDate) {
+                            consecutive += 1
+                            let formatter = DateFormatter()
+                            formatter.dateStyle = .medium
+                            print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
+                            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
+                        }
+                    } else {
+                        // More than a day has passed - streak is broken
+                        consecutive = 0
+                        print("   ❌ More than 24 hours since last session - streak broken")
+                    }
+                } else {
+                    // No sessions at all
+                    consecutive = 0
+                    print("   ❌ No sessions found - streak is 0")
+                }
+            }
+        }
+        
+        print("⚡ Final consecutive days count: \(consecutive)")
+        return consecutive
+    }
+    
     private func setupAudioSession() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -132,6 +241,9 @@ class SessionManager: ObservableObject {
             // Save to HealthKit as a mindful session
             healthManager?.saveMindfulSession(session)
             
+            // Recalculate streak after saving new session
+            healthManager?.calculateConsecutiveDays()
+            
             // Show save confirmation briefly
             showSessionSavedMessage = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -185,6 +297,9 @@ class SessionManager: ObservableObject {
         sessions.removeAll { $0.id == session.id }
         saveSessions()
         
+        // Recalculate streak after deleting session
+        healthManager?.calculateConsecutiveDays()
+        
         print("Session deleted from app (HealthKit data preserved)")
     }
     
@@ -192,6 +307,9 @@ class SessionManager: ObservableObject {
         // Delete from local storage only (preserve HealthKit data)
         sessions.removeAll()
         saveSessions()
+        
+        // Recalculate streak after deleting all sessions
+        healthManager?.calculateConsecutiveDays()
         
         print("All sessions deleted from app (HealthKit data preserved)")
     }

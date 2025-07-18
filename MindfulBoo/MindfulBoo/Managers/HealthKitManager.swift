@@ -7,6 +7,7 @@ class HealthKitManager: ObservableObject {
     @Published var isAuthorized = false
     @Published var lastError: Error?
     @Published var consecutiveDays = 0
+    private var sessionManager: SessionManager?
     
     private let typesToRead: Set<HKSampleType> = [
         HKCategoryType(.mindfulSession)
@@ -18,6 +19,10 @@ class HealthKitManager: ObservableObject {
     
     init() {
         checkAuthorizationStatus()
+    }
+    
+    func setSessionManager(_ sessionManager: SessionManager) {
+        self.sessionManager = sessionManager
     }
     
     func forceRefreshPermissions() {
@@ -275,122 +280,17 @@ class HealthKitManager: ObservableObject {
     }
     
     func calculateConsecutiveDays() {
-        print("🔍 calculateConsecutiveDays called, isAuthorized: \(isAuthorized)")
+        print("🔍 calculateConsecutiveDays called - using local session data")
         
-        guard isAuthorized else {
-            print("❌ Not authorized for HealthKit, setting consecutive days to 0")
+        // Use SessionManager's session data instead of HealthKit
+        guard let sessionManager = sessionManager else {
+            print("❌ SessionManager not set, setting consecutive days to 0")
             consecutiveDays = 0
             return
         }
         
-        let mindfulSessionType = HKCategoryType(.mindfulSession)
-        
-        // Create a predicate for the last 365 days to ensure we capture enough data
-        let endDate = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -365, to: endDate) ?? endDate
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictEndDate)
-        
-        print("🔍 Querying HealthKit for meditation sessions from \(startDate) to \(endDate)")
-        
-        let query = HKSampleQuery(
-            sampleType: mindfulSessionType,
-            predicate: predicate,
-            limit: HKObjectQueryNoLimit,
-            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
-        ) { [weak self] _, samples, error in
-            
-            if let error = error {
-                print("❌ Failed to fetch meditation sessions for consecutive days: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self?.consecutiveDays = 0
-                }
-                return
-            }
-            
-            guard let samples = samples else {
-                print("⚠️ No samples returned from HealthKit query")
-                DispatchQueue.main.async {
-                    self?.consecutiveDays = 0
-                }
-                return
-            }
-            
-            print("📊 Found \(samples.count) meditation sessions in HealthKit")
-            
-            if samples.isEmpty {
-                print("⚠️ No meditation sessions found, consecutive days = 0")
-                DispatchQueue.main.async {
-                    self?.consecutiveDays = 0
-                }
-                return
-            }
-            
-            // Calculate consecutive days based on START DATE (when meditation began)
-            let calendar = Calendar.current
-            var consecutive = 0
-            
-            // Group sessions by the day they STARTED (not ended)
-            var sessionsByDay: Set<Date> = []
-            for sample in samples {
-                // Use startDate to determine which day the meditation belongs to
-                let dayStart = calendar.startOfDay(for: sample.startDate)
-                sessionsByDay.insert(dayStart)
-            }
-            
-            // Debug: Log all unique session days
-            let sortedDays = Array(sessionsByDay).sorted(by: >)
-            print("📅 Session days found (most recent first, based on START date):")
-            for day in sortedDays.prefix(10) {
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                formatter.timeStyle = .none
-                print("   - \(formatter.string(from: day))")
-            }
-            
-            // Count consecutive days backwards from today
-            print("🔍 Checking consecutive days starting from today...")
-            var currentDate = calendar.startOfDay(for: Date())
-            
-            // Check if there's a session today first
-            if sessionsByDay.contains(currentDate) {
-                consecutive = 1
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                print("   ✅ Day \(consecutive): \(formatter.string(from: currentDate)) (TODAY)")
-                
-                // Now check previous days
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-                
-                while sessionsByDay.contains(currentDate) {
-                    consecutive += 1
-                    let formatter = DateFormatter()
-                    formatter.dateStyle = .medium
-                    print("   ✅ Day \(consecutive): \(formatter.string(from: currentDate))")
-                    currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-                }
-            } else {
-                // No session today, check if there was one yesterday to continue streak
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-                
-                if sessionsByDay.contains(currentDate) {
-                    // There was a session yesterday, but not today - streak is broken
-                    consecutive = 0
-                    print("   ❌ No session today, but found session yesterday - streak broken")
-                } else {
-                    // No session today or yesterday
-                    consecutive = 0
-                    print("   ❌ No session today or yesterday - streak is 0")
-                }
-            }
-            
-            print("⚡ Final consecutive days count: \(consecutive)")
-            
-            DispatchQueue.main.async {
-                self?.consecutiveDays = consecutive
-                print("✅ Updated consecutiveDays to: \(consecutive)")
-            }
-        }
-        
-        healthStore.execute(query)
+        let streakCount = sessionManager.calculateConsecutiveDays()
+        consecutiveDays = streakCount
+        print("✅ Updated consecutiveDays to: \(consecutiveDays) (from local session data)")
     }
 } 

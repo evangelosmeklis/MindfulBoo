@@ -69,6 +69,17 @@ struct ContentView: View {
                     .onTapGesture {
                         // Debug tap - force recalculate
                         print("🐛 DEBUG TAP: Forcing streak recalculation...")
+                        print("📊 Current sessions count: \(sessionManager.sessions.count)")
+                        
+                        // Show recent sessions for debugging
+                        let recentSessions = sessionManager.sessions.suffix(5)
+                        for session in recentSessions {
+                            let formatter = DateFormatter()
+                            formatter.dateStyle = .medium
+                            formatter.timeStyle = .short
+                            print("   - Session: \(formatter.string(from: session.startDate))")
+                        }
+                        
                         healthStore.calculateConsecutiveDays()
                         
                         // Also show debug permissions info

@@ -45,8 +45,13 @@ struct MindfulBooApp: App {
                     // Setup notification delegate
                     UNUserNotificationCenter.current().delegate = notificationDelegate
                     
+                    // Connect the managers so they can work together
                     healthStore.requestPermissions()
                     sessionManager.setHealthManager(healthStore)
+                    healthStore.setSessionManager(sessionManager)
+                    
+                    // Calculate initial streak from existing sessions
+                    healthStore.calculateConsecutiveDays()
                     
                     // Give a moment for permissions to be processed, then log status
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
