@@ -1,12 +1,29 @@
-// This file contains all the types needed for the app to compile
-// This is a temporary workaround for the Xcode file recognition issue
-
 import Foundation
 import Combine
 import AVFoundation
 import UserNotifications
 import UIKit
 import SwiftUI
+import ActivityKit
+
+// MARK: - Live Activity Attributes
+struct MindfulBooActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        // Dynamic data that changes during the session
+        var timeRemaining: TimeInterval
+        var progress: Double
+        var sessionState: SessionState
+    }
+
+    // Static data that doesn't change
+    var sessionDuration: TimeInterval
+}
+
+enum SessionState: String, Codable, Hashable {
+    case running
+    case paused
+    case ended
+}
 
 // MARK: - Settings Types (from Settings.swift)
 
@@ -289,6 +306,7 @@ class SessionManager: ObservableObject {
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var notificationIdentifier = "meditation_session_complete"
     private var settingsManager: SettingsManager?
+    private var currentActivity: Activity<MindfulBooActivityAttributes>?
     
     var formattedTimeRemaining: String {
         let minutes = Int(timeRemaining) / 60
@@ -321,9 +339,9 @@ class SessionManager: ObservableObject {
     func startSession(duration: TimeInterval) {
         print("🚀 startSession called with duration: \(duration/60) minutes")
         
-        guard !isSessionActive else { 
+        guard !isSessionActive else {
             print("❌ Session already active, returning early")
-            return 
+            return
         }
         
         print("✅ Starting new meditation session...")
@@ -344,6 +362,9 @@ class SessionManager: ObservableObject {
             endDate: nil
         )
         
+        // Start Live Activity
+        startLiveActivity()
+        
         // Request notification permissions and schedule completion notification
         requestNotificationPermissions()
         scheduleSessionCompletionNotification(duration: duration)
@@ -362,6 +383,9 @@ class SessionManager: ObservableObject {
         timer?.invalidate()
         timer = nil
         isSessionActive = false
+        
+        // End Live Activity
+        endLiveActivity()
         
         // Cancel scheduled notification since session is ending
         cancelSessionNotification()
@@ -404,6 +428,9 @@ class SessionManager: ObservableObject {
         timeRemaining = max(0, sessionDuration - elapsed)
         progress = min(1.0, elapsed / sessionDuration)
         
+        // Update Live Activity
+        updateLiveActivity()
+        
         // Check if session should end
         if timeRemaining <= 0 {
             DispatchQueue.main.async {
@@ -419,6 +446,52 @@ class SessionManager: ObservableObject {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+    }
+    
+    // MARK: - Live Activity Management
+    
+    private func startLiveActivity() {
+        let attributes = MindfulBooActivityAttributes(sessionDuration: sessionDuration)
+        let initialState = MindfulBooActivityAttributes.ContentState(
+            timeRemaining: timeRemaining,
+            progress: progress,
+            sessionState: .running
+        )
+        
+        do {
+            currentActivity = try Activity<MindfulBooActivityAttributes>.request(
+                attributes: attributes,
+                content: .init(state: initialState, staleDate: nil)
+            )
+            print("Live Activity started")
+        } catch (let error) {
+            print("Error starting Live Activity: \(error.localizedDescription)")
+        }
+    }
+    
+    private func updateLiveActivity() {
+        let updatedState = MindfulBooActivityAttributes.ContentState(
+            timeRemaining: timeRemaining,
+            progress: progress,
+            sessionState: .running
+        )
+        
+        Task {
+            await currentActivity?.update(using: updatedState)
+        }
+    }
+    
+    private func endLiveActivity() {
+        let finalState = MindfulBooActivityAttributes.ContentState(
+            timeRemaining: 0,
+            progress: 1.0,
+            sessionState: .ended
+        )
+        
+        Task {
+            await currentActivity?.end(using: finalState, dismissalPolicy: .default)
+            print("Live Activity ended")
+        }
     }
     
     // MARK: - Streak Calculation
@@ -1321,3 +1394,4 @@ struct AddReminderView: View {
     SettingsView()
         .environmentObject(SettingsManager())
 }
+
