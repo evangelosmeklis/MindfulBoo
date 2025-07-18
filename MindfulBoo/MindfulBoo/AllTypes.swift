@@ -489,7 +489,7 @@ class SessionManager: ObservableObject {
         )
         
         Task {
-            await currentActivity?.end(using: finalState, dismissalPolicy: .default)
+            await currentActivity?.end(using: finalState, dismissalPolicy: .immediate)
             print("Live Activity ended")
         }
     }
