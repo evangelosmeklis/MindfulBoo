@@ -13,10 +13,12 @@ struct MindfulBooActivityAttributes: ActivityAttributes {
         var timeRemaining: TimeInterval
         var progress: Double
         var sessionState: SessionState
+        var sessionEndTime: Date // Add fixed end time for consistent countdown
     }
 
     // Static data that doesn't change
     var sessionDuration: TimeInterval
+    var sessionStartTime: Date // Add start time for reference
 }
 
 enum SessionState: String, Codable, Hashable {
@@ -418,17 +420,41 @@ class SessionManager: ObservableObject {
         // Play completion sound
         playCompletionSound()
         
-        print("Stopped meditation session")
+        print("✅ Meditation session stopped - timers synchronized")
+    }
+    
+    // MARK: - Timer Synchronization Helper
+    
+    func forceSyncTimers() {
+        guard let startTime = startTime, isSessionActive else { return }
+        
+        let now = Date()
+        let elapsed = now.timeIntervalSince(startTime)
+        let syncedTimeRemaining = max(0, sessionDuration - elapsed)
+        let syncedProgress = min(1.0, elapsed / sessionDuration)
+        
+        timeRemaining = syncedTimeRemaining
+        progress = syncedProgress
+        
+        updateLiveActivity()
+        
+        print("🔄 Timers force synchronized - Remaining: \(Int(syncedTimeRemaining))s, Progress: \(Int(syncedProgress * 100))%")
     }
     
     private func updateTimer() {
         guard let startTime = startTime, isSessionActive else { return }
         
-        let elapsed = Date().timeIntervalSince(startTime)
-        timeRemaining = max(0, sessionDuration - elapsed)
-        progress = min(1.0, elapsed / sessionDuration)
+        // Use consistent time calculation for both app and widget
+        let now = Date()
+        let elapsed = now.timeIntervalSince(startTime)
+        let calculatedTimeRemaining = max(0, sessionDuration - elapsed)
+        let calculatedProgress = min(1.0, elapsed / sessionDuration)
         
-        // Update Live Activity
+        // Update properties
+        timeRemaining = calculatedTimeRemaining
+        progress = calculatedProgress
+        
+        // Update Live Activity with synchronized timing
         updateLiveActivity()
         
         // Check if session should end
@@ -451,11 +477,18 @@ class SessionManager: ObservableObject {
     // MARK: - Live Activity Management
     
     private func startLiveActivity() {
-        let attributes = MindfulBooActivityAttributes(sessionDuration: sessionDuration)
+        guard let startTime = startTime else { return }
+        
+        let sessionEndTime = startTime.addingTimeInterval(sessionDuration)
+        let attributes = MindfulBooActivityAttributes(
+            sessionDuration: sessionDuration,
+            sessionStartTime: startTime
+        )
         let initialState = MindfulBooActivityAttributes.ContentState(
             timeRemaining: timeRemaining,
             progress: progress,
-            sessionState: .running
+            sessionState: .running,
+            sessionEndTime: sessionEndTime
         )
         
         do {
@@ -463,17 +496,31 @@ class SessionManager: ObservableObject {
                 attributes: attributes,
                 content: .init(state: initialState, staleDate: nil)
             )
-            print("Live Activity started")
+            print("Live Activity started with end time: \(sessionEndTime)")
         } catch (let error) {
             print("Error starting Live Activity: \(error.localizedDescription)")
         }
     }
     
     private func updateLiveActivity() {
+        guard let startTime = startTime else { return }
+        
+        // Calculate the exact end time for consistent timing across app and widget
+        let sessionEndTime = startTime.addingTimeInterval(sessionDuration)
+        let now = Date()
+        let actualTimeRemaining = max(0, sessionEndTime.timeIntervalSince(now))
+        
+        // Debug logging to track synchronization
+        let timeDifference = abs(actualTimeRemaining - timeRemaining)
+        if timeDifference > 1.0 { // Log if difference is more than 1 second
+            print("⚠️ Timer sync issue detected - App: \(Int(timeRemaining))s, Widget: \(Int(actualTimeRemaining))s, Diff: \(timeDifference)s")
+        }
+        
         let updatedState = MindfulBooActivityAttributes.ContentState(
-            timeRemaining: timeRemaining,
+            timeRemaining: actualTimeRemaining,
             progress: progress,
-            sessionState: .running
+            sessionState: .running,
+            sessionEndTime: sessionEndTime
         )
         
         Task {
@@ -482,10 +529,14 @@ class SessionManager: ObservableObject {
     }
     
     private func endLiveActivity() {
+        guard let startTime = startTime else { return }
+        
+        let sessionEndTime = startTime.addingTimeInterval(sessionDuration)
         let finalState = MindfulBooActivityAttributes.ContentState(
             timeRemaining: 0,
             progress: 1.0,
-            sessionState: .ended
+            sessionState: .ended,
+            sessionEndTime: sessionEndTime
         )
         
         Task {

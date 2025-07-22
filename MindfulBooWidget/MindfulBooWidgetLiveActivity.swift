@@ -16,10 +16,12 @@ struct MindfulBooActivityAttributes: ActivityAttributes {
         var timeRemaining: TimeInterval
         var progress: Double
         var sessionState: SessionState
+        var sessionEndTime: Date // Add fixed end time for consistent countdown
     }
 
     // Static data that doesn't change
     var sessionDuration: TimeInterval
+    var sessionStartTime: Date // Add start time for reference
 }
 
 enum SessionState: String, Codable, Hashable {
@@ -68,7 +70,7 @@ struct MindfulBooWidgetLiveActivity: Widget {
 
                 GradientProgressBar(progress: context.state.progress)
 
-                Text(timerInterval: Date.now...Date.now.addingTimeInterval(context.state.timeRemaining), countsDown: true)
+                Text(timerInterval: Date.now...context.state.sessionEndTime, countsDown: true)
                     .font(.title2)
                     .fontWeight(.bold)
                     .monospacedDigit()
@@ -95,7 +97,7 @@ struct MindfulBooWidgetLiveActivity: Widget {
                         .font(.title)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: Date.now...Date.now.addingTimeInterval(context.state.timeRemaining), countsDown: true)
+                    Text(timerInterval: Date.now...context.state.sessionEndTime, countsDown: true)
                         .font(.title)
                         .fontWeight(.semibold)
                 }
@@ -106,7 +108,7 @@ struct MindfulBooWidgetLiveActivity: Widget {
             } compactLeading: {
                 Image(systemName: "lotus")
             } compactTrailing: {
-                Text(timerInterval: Date.now...Date.now.addingTimeInterval(context.state.timeRemaining), countsDown: true)
+                Text(timerInterval: Date.now...context.state.sessionEndTime, countsDown: true)
                     .frame(width: 50)
             } minimal: {
                 Image(systemName: "lotus")
