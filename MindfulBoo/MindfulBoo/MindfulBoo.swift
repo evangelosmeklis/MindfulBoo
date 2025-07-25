@@ -12,19 +12,22 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         // Handle notification actions
         switch response.actionIdentifier {
         case "COMPLETE_ACTION":
-            print("User marked meditation as complete")
-            // Could add logic here to mark session as complete
+            print("✅ User marked meditation as complete")
+            // Session should already be completed by the timer/notification
         case "EXTEND_ACTION":
-            print("User wants to extend meditation by 5 minutes")
+            print("⏰ User wants to extend meditation by 5 minutes")
             // Could add logic here to extend the current session
         case "STOP_SESSION_ACTION":
-            print("User wants to stop the current session")
+            print("🛑 User wants to stop the current session")
             // Could add logic here to stop the current session
         case "EXTEND_SESSION_ACTION":
-            print("User wants to extend the current session by 5 minutes")
+            print("⏰ User wants to extend the current session by 5 minutes")
             // Could add logic here to extend the current session
+        case UNNotificationDefaultActionIdentifier:
+            print("🔔 User tapped meditation completion notification")
+            // This handles when user taps the notification itself
         default:
-            print("User tapped meditation notification")
+            print("🔔 User interacted with meditation notification: \(response.actionIdentifier)")
         }
         completionHandler()
     }
@@ -67,8 +70,18 @@ struct MindfulBooApp: App {
                     print("📱 App became active - refreshing HealthKit permissions...")
                     healthStore.forceRefreshPermissions()
                     
+                    // Sync session timers when app becomes active (fixes background timer issues)
+                    sessionManager.forceSyncTimers()
+                    
                     // Clear notification badge when app becomes active
                     UNUserNotificationCenter.current().setBadgeCount(0)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                    // Handle app going to background during active session
+                    print("📱 App entered background")
+                    if sessionManager.isSessionActive {
+                        print("🔄 Active session detected - ensuring background task is running")
+                    }
                 }
         }
     }

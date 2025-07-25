@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import AudioToolbox
 import UserNotifications
 import UIKit
 import SwiftUI
@@ -331,10 +332,12 @@ class SessionManager: ObservableObject {
     
     private func setupAudioSession() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            // Configure audio session for background playback
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
+            print("✅ Audio session configured for background playback")
         } catch {
-            print("Failed to setup audio session: \(error)")
+            print("❌ Failed to setup audio session: \(error)")
         }
     }
     
@@ -355,6 +358,12 @@ class SessionManager: ObservableObject {
         progress = 0
         
         print("📱 isSessionActive set to: \(isSessionActive)")
+        
+        // Setup audio session for background playback
+        setupAudioSession()
+        
+        // Start background task to keep timer running when app is backgrounded
+        startBackgroundTask()
         
         // Create new session
         currentSession = Session(
@@ -385,6 +394,9 @@ class SessionManager: ObservableObject {
         timer?.invalidate()
         timer = nil
         isSessionActive = false
+        
+        // End background task
+        endBackgroundTask()
         
         // End Live Activity
         endLiveActivity()
@@ -438,6 +450,13 @@ class SessionManager: ObservableObject {
         
         updateLiveActivity()
         
+        // Check if session should have ended while app was in background
+        if syncedTimeRemaining <= 0 && isSessionActive {
+            print("🔄 Session completed while app was in background - stopping session")
+            stopSession()
+            return
+        }
+        
         print("🔄 Timers force synchronized - Remaining: \(Int(syncedTimeRemaining))s, Progress: \(Int(syncedProgress * 100))%")
     }
     
@@ -459,6 +478,7 @@ class SessionManager: ObservableObject {
         
         // Check if session should end
         if timeRemaining <= 0 {
+            print("⏰ Session timer reached zero - completing session")
             DispatchQueue.main.async {
                 self.stopSession()
             }
@@ -466,12 +486,42 @@ class SessionManager: ObservableObject {
     }
     
     private func playCompletionSound() {
+        // Ensure audio session is active for sound playback
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Failed to activate audio session for completion sound: \(error)")
+        }
+        
         // Play system sound for meditation completion
         AudioServicesPlaySystemSound(1327) // Gentle bell sound
         
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+        
+        print("🔔 Completion sound played")
+    }
+    
+    // MARK: - Background Task Management
+    
+    private func startBackgroundTask() {
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MeditationTimer") {
+            // This block is called when the background task is about to expire
+            print("⚠️ Background task expiring, ending session")
+            DispatchQueue.main.async {
+                self.endBackgroundTask()
+            }
+        }
+        print("🔄 Background task started: \(backgroundTaskID.rawValue)")
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+            print("🔄 Background task ended")
+        }
     }
     
     // MARK: - Live Activity Management
@@ -702,35 +752,36 @@ class SessionManager: ObservableObject {
     }
     
     private func scheduleSessionCompletionNotification(duration: TimeInterval) {
-        guard let settings = settingsManager?.settings.sessionNotifications,
-              settings.isEnabled else {
-            print("Session notifications disabled, skipping notification scheduling")
-            return
-        }
-        
-        // Always schedule completion notification
+        // Always schedule completion notification regardless of settings for the alarm bug fix
         let content = UNMutableNotificationContent()
         content.title = "🧘‍♀️ Meditation Complete"
         content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
         content.sound = UNNotificationSound.default
         content.badge = 1
+        content.categoryIdentifier = "MEDITATION_COMPLETE"
+        
+        // Add actions for better user experience
+        let completeAction = UNNotificationAction(identifier: "COMPLETE_ACTION", title: "Mark Complete", options: [])
+        let extendAction = UNNotificationAction(identifier: "EXTEND_ACTION", title: "Extend 5 min", options: [])
+        let category = UNNotificationCategory(identifier: "MEDITATION_COMPLETE", actions: [completeAction, extendAction], intentIdentifiers: [], options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([category])
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: duration, repeats: false)
         let request = UNNotificationRequest(identifier: notificationIdentifier, content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Failed to schedule notification: \(error)")
+                print("❌ Failed to schedule completion notification: \(error)")
             } else {
-                print("Scheduled completion notification for \(duration/60) minutes")
+                print("✅ Scheduled completion notification for \(Int(duration/60)) minutes")
             }
         }
         
-        // Schedule interval notifications based on settings
-        scheduleIntervalNotifications(duration: duration, settings: settings)
-        
-        // Schedule progress notifications based on settings
-        scheduleProgressNotifications(duration: duration, settings: settings)
+        // Schedule additional notifications if settings allow
+        if let settings = settingsManager?.settings.sessionNotifications, settings.isEnabled {
+            scheduleIntervalNotifications(duration: duration, settings: settings)
+            scheduleProgressNotifications(duration: duration, settings: settings)
+        }
     }
     
     private func scheduleIntervalNotifications(duration: TimeInterval, settings: SessionNotificationSettings) {
@@ -1189,6 +1240,20 @@ struct DailyReminderSettingsView: View {
     @State private var newReminderMessage = "Time for your daily meditation 🧘‍♀️"
     @State private var reminderToEdit: DailyReminderSettings.DailyReminder?
     
+    // Computed property to sort reminders by time
+    private var sortedReminders: [DailyReminderSettings.DailyReminder] {
+        settingsManager.settings.dailyReminders.reminders.sorted { reminder1, reminder2 in
+            let calendar = Calendar.current
+            let time1 = calendar.dateComponents([.hour, .minute], from: reminder1.time)
+            let time2 = calendar.dateComponents([.hour, .minute], from: reminder2.time)
+            
+            if time1.hour != time2.hour {
+                return (time1.hour ?? 0) < (time2.hour ?? 0)
+            }
+            return (time1.minute ?? 0) < (time2.minute ?? 0)
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -1253,12 +1318,13 @@ struct DailyReminderSettingsView: View {
                                 .font(.headline)
                                 .padding(.horizontal)
                             
-                            ForEach(Array(settingsManager.settings.dailyReminders.reminders.enumerated()), id: \.element.id) { index, reminder in
+                            ForEach(Array(sortedReminders.enumerated()), id: \.element.id) { index, reminder in
+                                let originalIndex = settingsManager.settings.dailyReminders.reminders.firstIndex(where: { $0.id == reminder.id }) ?? 0
                                 DailyReminderRow(
                                     reminder: reminder,
                                     isEnabled: reminder.isEnabled,
-                                    onToggle: { settingsManager.toggleDailyReminder(at: index) },
-                                    onDelete: { settingsManager.removeDailyReminder(at: index) },
+                                    onToggle: { settingsManager.toggleDailyReminder(at: originalIndex) },
+                                    onDelete: { settingsManager.removeDailyReminder(at: originalIndex) },
                                     onEdit: {
                                         reminderToEdit = reminder
                                     }
