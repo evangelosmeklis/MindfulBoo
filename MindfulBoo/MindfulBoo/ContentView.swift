@@ -49,7 +49,7 @@ struct ContentView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
-                    // Consecutive days streak - always show, even if 0
+                    // Consecutive days streak with Liquid Glass - always show, even if 0
                     HStack(spacing: 6) {
                         Text("⚡")
                             .font(.title2)
@@ -64,8 +64,29 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.orange.opacity(0.1))
+                        ZStack {
+                            // Base translucent glass
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(.thinMaterial)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(Color.orange.opacity(0.2))
+                                )
+                            
+                            // Liquid Glass shine effect
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.clear,
+                                            Color.orange.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
                     )
                     .onTapGesture {
                         // Debug tap - force recalculate
@@ -111,12 +132,33 @@ struct ContentView: View {
                                     .fontWeight(.semibold)
                             }
                             .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(12)
+                            .background(
+                                // Liquid Glass effect
+                                ZStack {
+                                    // Base translucent layer
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.ultraThinMaterial)
+                                        .opacity(0.8)
+                                    
+                                    // Specular highlight overlay
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.3),
+                                                    Color.clear,
+                                                    Color.white.opacity(0.1)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                }
+                            )
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(.primary)
                         
-                        // Start meditation button
+                        // Start meditation button with Liquid Glass
                         Button(action: startMeditation) {
                             HStack {
                                 Image(systemName: "play.fill")
@@ -128,13 +170,60 @@ struct ContentView: View {
                             .padding(.vertical, 16)
                             .padding(.horizontal, 32)
                             .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [.green, .blue]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                                ZStack {
+                                    // Vibrant color base layer
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color(red: 0.2, green: 0.8, blue: 0.4), // Vibrant green
+                                                    Color(red: 0.1, green: 0.6, blue: 0.9), // Vibrant blue
+                                                    Color(red: 0.3, green: 0.5, blue: 1.0)  // Electric blue
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .saturation(1.2) // Boost color saturation
+                                    
+                                    // Liquid glass overlay with tint
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(.thinMaterial)
+                                        .opacity(0.3)
+                                    
+                                    // Enhanced specular highlights
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.6),
+                                                    Color.cyan.opacity(0.2),
+                                                    Color.clear,
+                                                    Color.white.opacity(0.3),
+                                                    Color.clear
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .blendMode(.overlay)
+                                    
+                                    // Liquid glass depth effect
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.4),
+                                                    Color.clear,
+                                                    Color.blue.opacity(0.3)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                }
                             )
-                            .cornerRadius(25)
                         }
                         
                         // HealthKit status indicator
@@ -170,7 +259,7 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Bottom actions
+                // Bottom actions with Liquid Glass effects
                 HStack {
                     Spacer()
                     Button(action: { showingHistory = true }) {
@@ -180,8 +269,29 @@ struct ContentView: View {
                             Text("History")
                                 .font(.caption)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            ZStack {
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.7)
+                                
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.2),
+                                                Color.clear
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            }
+                        )
                     }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.primary)
                     
                     Spacer()
                     
@@ -192,8 +302,29 @@ struct ContentView: View {
                             Text("Settings")
                                 .font(.caption)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            ZStack {
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.7)
+                                
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.2),
+                                                Color.clear
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            }
+                        )
                     }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.primary)
                     Spacer()
                 }
                 .padding(.bottom, 30)
@@ -247,12 +378,29 @@ struct ContentView: View {
                     }
                     .padding()
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .gray.opacity(0.3), radius: 8, x: 0, y: 4)
+                        ZStack {
+                            // Liquid Glass base
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                            
+                            // Glass reflection
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.clear,
+                                            Color.white.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeInOut(duration: 0.3), value: sessionManager.showSessionSavedMessage)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: sessionManager.showSessionSavedMessage)
                     .padding(.bottom, 100)
                 }
             }
@@ -556,7 +704,7 @@ struct ActiveSessionView: View {
                 }
             }
             
-            // Simple meditation message
+            // Meditation message with Liquid Glass design
             VStack(spacing: 8) {
                 Image(systemName: "figure.mind.and.body")
                     .foregroundColor(.green)
@@ -573,8 +721,26 @@ struct ActiveSessionView: View {
             }
             .padding()
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
+                ZStack {
+                    // Base glass layer
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.regularMaterial)
+                        .opacity(0.9)
+                    
+                    // Glass reflection effect
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.2),
+                                    Color.clear,
+                                    Color.white.opacity(0.1)
+                                ],
+                                startPoint: UnitPoint(x: 0.1, y: 0.1),
+                                endPoint: UnitPoint(x: 0.9, y: 0.9)
+                            )
+                        )
+                }
             )
             
             // Stop button

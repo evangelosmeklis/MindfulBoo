@@ -332,10 +332,10 @@ class SessionManager: ObservableObject {
     
     private func setupAudioSession() {
         do {
-            // Configure audio session for background playback
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            // Configure audio session for background playback with alarm capability
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
-            print("✅ Audio session configured for background playback")
+            print("✅ Audio session configured for background alarm playback")
         } catch {
             print("❌ Failed to setup audio session: \(error)")
         }
@@ -508,9 +508,16 @@ class SessionManager: ObservableObject {
     private func startBackgroundTask() {
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MeditationTimer") {
             // This block is called when the background task is about to expire
-            print("⚠️ Background task expiring, ending session")
+            print("⚠️ Background task expiring - extending for alarm continuity")
             DispatchQueue.main.async {
-                self.endBackgroundTask()
+                // For longer sessions, try to extend background execution
+                if self.timeRemaining > 30 {
+                    print("🔄 Attempting to extend background task for remaining session time")
+                    self.endBackgroundTask()
+                    self.startBackgroundTask() // Restart background task
+                } else {
+                    self.endBackgroundTask()
+                }
             }
         }
         print("🔄 Background task started: \(backgroundTaskID.rawValue)")
@@ -598,7 +605,7 @@ class SessionManager: ObservableObject {
     // MARK: - Streak Calculation
     
     func calculateConsecutiveDays() -> Int {
-        print("🔍 Calculating consecutive days from session history...")
+        print("🔍 Calculating consecutive days with strict day boundaries (00:00-23:59)...")
         
         guard !sessions.isEmpty else {
             print("⚠️ No sessions found, consecutive days = 0")
@@ -608,23 +615,27 @@ class SessionManager: ObservableObject {
         let calendar = Calendar.current
         var consecutive = 0
         
-        // Group sessions by day (using start date)
+        // Group sessions by calendar day (using start date)
         var sessionsByDay: Set<Date> = []
         for session in sessions {
             let dayStart = calendar.startOfDay(for: session.startDate)
             sessionsByDay.insert(dayStart)
         }
         
-        // Sort days in descending order (most recent first)
-        let sortedDays = Array(sessionsByDay).sorted(by: >)
+        // Get current time and today's start
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let currentHour = calendar.component(.hour, from: now)
+        let currentMinute = calendar.component(.minute, from: now)
+        
+        print("   📅 Current time: \(currentHour):\(String(format: "%02d", currentMinute))")
+        print("   📅 Sessions found on \(sessionsByDay.count) different days")
         
         // Check if there's a session today
-        let today = calendar.startOfDay(for: Date())
-        
         if sessionsByDay.contains(today) {
             // There's a session today - start counting from today
             consecutive = 1
-            print("   ✅ Day \(consecutive): Today")
+            print("   ✅ Day \(consecutive): Today (session completed)")
             
             // Check previous days for consecutive streak
             var checkDate = calendar.date(byAdding: .day, value: -1, to: today)!
@@ -637,55 +648,45 @@ class SessionManager: ObservableObject {
                 checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
             }
         } else {
-            // No session today - check if we can continue streak from yesterday
+            // No session today - check if streak should continue or be broken
             let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
             
             if sessionsByDay.contains(yesterday) {
-                // There was a session yesterday - streak continues (today hasn't ended yet)
-                consecutive = 1
-                print("   ✅ Day \(consecutive): Yesterday (today hasn't ended yet)")
+                // There was a session yesterday
+                // Check if we're still within today's timeframe (before 23:59:59)
+                let endOfToday = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: today)!
                 
-                // Check days before yesterday for consecutive streak
-                var checkDate = calendar.date(byAdding: .day, value: -2, to: today)!
-                
-                while sessionsByDay.contains(checkDate) {
-                    consecutive += 1
-                    let formatter = DateFormatter()
-                    formatter.dateStyle = .medium
-                    print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
-                    checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
-                }
-            } else {
-                // No session yesterday either - check if streak should be broken
-                if let lastSessionDay = sortedDays.first {
-                    let daysSinceLastSession = calendar.dateComponents([.day], from: lastSessionDay, to: today).day ?? 0
+                if now <= endOfToday {
+                    // Still within today - streak continues
+                    consecutive = 1
+                    print("   ✅ Day \(consecutive): Yesterday (today hasn't ended - time: \(currentHour):\(String(format: "%02d", currentMinute)))")
                     
-                    if daysSinceLastSession <= 1 {
-                        // Last session was yesterday or today - maintain streak
-                        consecutive = 1
+                    // Check days before yesterday for consecutive streak
+                    var checkDate = calendar.date(byAdding: .day, value: -2, to: today)!
+                    
+                    while sessionsByDay.contains(checkDate) {
+                        consecutive += 1
                         let formatter = DateFormatter()
                         formatter.dateStyle = .medium
-                        print("   ✅ Day \(consecutive): \(formatter.string(from: lastSessionDay)) (within 24 hours)")
-                        
-                        // Check previous days
-                        var checkDate = calendar.date(byAdding: .day, value: -1, to: lastSessionDay)!
-                        
-                        while sessionsByDay.contains(checkDate) {
-                            consecutive += 1
-                            let formatter = DateFormatter()
-                            formatter.dateStyle = .medium
-                            print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
-                            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
-                        }
-                    } else {
-                        // More than a day has passed - streak is broken
-                        consecutive = 0
-                        print("   ❌ More than 24 hours since last session - streak broken")
+                        print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
+                        checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
                     }
                 } else {
-                    // No sessions at all
+                    // Past midnight of the next day - streak is broken
                     consecutive = 0
-                    print("   ❌ No sessions found - streak is 0")
+                    print("   ❌ Past 23:59:59 of today without a session - streak broken")
+                }
+            } else {
+                // No session yesterday - streak is broken
+                consecutive = 0
+                print("   ❌ No session yesterday and none today - streak broken")
+                
+                // Show when the last session was for debugging
+                if let lastSessionDay = sessionsByDay.max() {
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    let daysBetween = calendar.dateComponents([.day], from: lastSessionDay, to: today).day ?? 0
+                    print("   📊 Last session was \(daysBetween) day(s) ago: \(formatter.string(from: lastSessionDay))")
                 }
             }
         }
@@ -759,6 +760,12 @@ class SessionManager: ObservableObject {
         content.sound = UNNotificationSound.default
         content.badge = 1
         content.categoryIdentifier = "MEDITATION_COMPLETE"
+        
+        // Critical notification for alarms to work when device is locked
+        if duration >= 60 { // For sessions 1 minute or longer
+            content.interruptionLevel = .critical
+            content.relevanceScore = 1.0
+        }
         
         // Add actions for better user experience
         let completeAction = UNNotificationAction(identifier: "COMPLETE_ACTION", title: "Mark Complete", options: [])
@@ -924,7 +931,7 @@ struct EditReminderView: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Time picker
+                    // Time picker with Liquid Glass
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Reminder Time")
                             .font(.headline)
@@ -933,6 +940,36 @@ struct EditReminderView: View {
                             .datePickerStyle(WheelDatePickerStyle())
                             .labelsHidden()
                     }
+                    .padding()
+                    .background(
+                        ZStack {
+                            // Liquid Glass time picker background
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .opacity(0.9)
+                            
+                            // Glass highlight
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.clear,
+                                            Color.orange.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            
+                            // Glass border
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    Color.white.opacity(0.1),
+                                    lineWidth: 1
+                                )
+                        }
+                    )
                     
                     // Message input
                     VStack(alignment: .leading, spacing: 12) {
@@ -956,8 +993,30 @@ struct EditReminderView: View {
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.1))
-                                    .cornerRadius(16)
+                                    .background(
+                                        ZStack {
+                                            // Liquid Glass suggestion button
+                                            Capsule()
+                                                .fill(.thinMaterial)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.blue.opacity(0.2))
+                                                )
+                                            
+                                            // Glass highlight
+                                            Capsule()
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color.white.opacity(0.4),
+                                                            Color.clear
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                        }
+                                    )
                                     .foregroundColor(.blue)
                                 }
                             }
@@ -991,8 +1050,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Custom tab picker
-                HStack(spacing: 0) {
+                // Custom tab picker with Liquid Glass
+                HStack(spacing: 4) {
                     TabButton(
                         title: "Session",
                         isSelected: selectedTab == 0,
@@ -1006,7 +1065,31 @@ struct SettingsView: View {
                     )
                 }
                 .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.vertical, 8)
+                .background(
+                    ZStack {
+                        // Liquid Glass tab bar background
+                        Capsule()
+                            .fill(.thinMaterial)
+                            .opacity(0.8)
+                            .frame(height: 44) // Fixed height for consistent alignment
+                        
+                        // Glass highlight
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.2),
+                                        Color.clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .frame(height: 44)
+                    }
+                    .padding(.horizontal)
+                )
                 
                 // Tab content
                 TabView(selection: $selectedTab) {
@@ -1035,19 +1118,54 @@ struct TabButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundColor(isSelected ? .blue : .secondary)
-                
-                Rectangle()
-                    .fill(isSelected ? Color.blue : Color.clear)
-                    .frame(height: 2)
-            }
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundColor(isSelected ? .white : .secondary)
+                .frame(height: 40) // Fixed height for proper alignment
+                .padding(.horizontal, 16)
+                .background(
+                    ZStack {
+                        if isSelected {
+                            // Selected state with Liquid Glass
+                            Capsule()
+                                .fill(.regularMaterial)
+                                .background(
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [.blue, .cyan],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                )
+                            
+                            // Glass highlight for selected tab
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.clear,
+                                            Color.white.opacity(0.2)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .blendMode(.overlay)
+                        } else {
+                            // Unselected state - subtle glass
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                                .opacity(0.3)
+                        }
+                    }
+                )
         }
         .frame(maxWidth: .infinity)
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isSelected)
     }
 }
 
@@ -1090,8 +1208,35 @@ struct SessionNotificationSettingsView: View {
                         ))
                     }
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .background(
+                        ZStack {
+                            // Liquid Glass settings card
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .opacity(0.9)
+                            
+                            // Glass highlight
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.clear,
+                                            Color.blue.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            
+                            // Glass border
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    Color.white.opacity(0.1),
+                                    lineWidth: 1
+                                )
+                        }
+                    )
                 }
                 .padding(.horizontal)
                 
@@ -1181,12 +1326,35 @@ struct IntervalOptionRow: View {
             }
             .padding()
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 1)
-                    )
+                ZStack {
+                    // Base glass material
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isSelected ? .thinMaterial : .ultraThinMaterial)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isSelected ? Color.blue.opacity(0.2) : Color.clear)
+                        )
+                    
+                    // Glass highlight
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isSelected ? 0.3 : 0.1),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    // Glass border
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isSelected ? Color.blue.opacity(0.5) : Color.white.opacity(0.1),
+                            lineWidth: isSelected ? 1.5 : 0.5
+                        )
+                }
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1219,12 +1387,35 @@ struct ProgressNotificationRow: View {
             }
             .padding()
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? Color.blue.opacity(0.1) : Color(.systemGray6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isEnabled ? Color.blue : Color.clear, lineWidth: 1)
-                    )
+                ZStack {
+                    // Base glass material for progress notifications
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isEnabled ? .thinMaterial : .ultraThinMaterial)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isEnabled ? Color.blue.opacity(0.2) : Color.clear)
+                        )
+                    
+                    // Glass highlight
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isEnabled ? 0.3 : 0.1),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    // Glass border
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isEnabled ? Color.blue.opacity(0.5) : Color.white.opacity(0.1),
+                            lineWidth: isEnabled ? 1.5 : 0.5
+                        )
+                }
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1288,8 +1479,35 @@ struct DailyReminderSettingsView: View {
                         ))
                     }
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .background(
+                        ZStack {
+                            // Liquid Glass daily reminders card
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .opacity(0.9)
+                            
+                            // Glass highlight with green tint
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.clear,
+                                            Color.green.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            
+                            // Glass border
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    Color.white.opacity(0.1),
+                                    lineWidth: 1
+                                )
+                        }
+                    )
                 }
                 .padding(.horizontal)
                 
@@ -1422,8 +1640,35 @@ struct DailyReminderRow: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isEnabled ? Color(.systemGray6) : Color(.systemGray5))
+            ZStack {
+                // Liquid Glass reminder row
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isEnabled ? .thinMaterial : .ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(isEnabled ? Color.green.opacity(0.1) : Color.gray.opacity(0.05))
+                    )
+                
+                // Glass highlight
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(isEnabled ? 0.2 : 0.1),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Glass border
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        Color.white.opacity(isEnabled ? 0.2 : 0.1),
+                        lineWidth: 0.5
+                    )
+            }
         )
     }
 }
@@ -1448,7 +1693,7 @@ struct AddReminderView: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Time picker
+                    // Time picker with Liquid Glass
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Reminder Time")
                             .font(.headline)
@@ -1457,6 +1702,36 @@ struct AddReminderView: View {
                             .datePickerStyle(WheelDatePickerStyle())
                             .labelsHidden()
                     }
+                    .padding()
+                    .background(
+                        ZStack {
+                            // Liquid Glass time picker background
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .opacity(0.9)
+                            
+                            // Glass highlight
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.clear,
+                                            Color.orange.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            
+                            // Glass border
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    Color.white.opacity(0.1),
+                                    lineWidth: 1
+                                )
+                        }
+                    )
                     
                     // Message input
                     VStack(alignment: .leading, spacing: 12) {
@@ -1480,8 +1755,30 @@ struct AddReminderView: View {
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.1))
-                                    .cornerRadius(16)
+                                    .background(
+                                        ZStack {
+                                            // Liquid Glass suggestion button
+                                            Capsule()
+                                                .fill(.thinMaterial)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.blue.opacity(0.2))
+                                                )
+                                            
+                                            // Glass highlight
+                                            Capsule()
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color.white.opacity(0.4),
+                                                            Color.clear
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                        }
+                                    )
                                     .foregroundColor(.blue)
                                 }
                             }

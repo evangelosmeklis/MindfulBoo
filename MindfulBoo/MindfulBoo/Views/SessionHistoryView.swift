@@ -151,8 +151,40 @@ struct SessionSummaryStatsView: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+            ZStack {
+                // Liquid Glass base
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .opacity(0.9)
+                
+                // Glass shine effect
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear,
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Subtle border
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
         )
     }
 }
@@ -179,7 +211,30 @@ struct StatsCard: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
+        .background(
+            ZStack {
+                // Liquid Glass card background
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.thinMaterial)
+                    .opacity(0.8)
+                
+                // Specular highlight
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.4),
+                                Color.clear,
+                                color.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        )
     }
 }
 
@@ -276,11 +331,37 @@ struct SessionRowView: View {
             }
             .frame(height: 4)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.systemBackground))
-                .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+            ZStack {
+                // Liquid Glass row background
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.9)
+                
+                // Glass reflection
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.clear,
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Subtle glass border
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        Color.white.opacity(0.1),
+                        lineWidth: 0.5
+                    )
+            }
+            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
         )
     }
 }
@@ -365,8 +446,42 @@ struct SessionSummaryCard: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(
+            ZStack {
+                // Liquid Glass card
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .opacity(0.9)
+                
+                // Glass highlight
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear,
+                                Color.blue.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Glass border
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 }
 
@@ -421,8 +536,42 @@ struct SessionInsightsCard: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(
+            ZStack {
+                // Liquid Glass insights card
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .opacity(0.9)
+                
+                // Glass highlight with green tint
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear,
+                                Color.green.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Glass border
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 }
 
