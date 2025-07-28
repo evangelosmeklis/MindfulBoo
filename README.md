@@ -1,6 +1,6 @@
 # 🧘‍♀️ MindfulBoo
 
-![MindfulBoo Preview](media/preview_smaller.png)
+![MindfulBoo Preview](media/mindfulboo_light.png)
 
 A simple and fast meditation app for iOS.
 
