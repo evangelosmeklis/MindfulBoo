@@ -59,6 +59,9 @@ struct MindfulBooApp: App {
                     let streakCount = sessionManager.calculateConsecutiveDays()
                     healthStore.updateConsecutiveDays(streakCount)
                     
+                    // Debug notification settings
+                    checkNotificationSettings()
+                    
                     // Give a moment for permissions to be processed, then log status
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         print("\n🚀 Meditation App Started")
@@ -83,6 +86,36 @@ struct MindfulBooApp: App {
                         print("🔄 Active session detected - ensuring background task is running")
                     }
                 }
+        }
+    }
+    
+    private func checkNotificationSettings() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                print("\n🔔 NOTIFICATION SETTINGS DEBUG:")
+                print("   Authorization Status: \(settings.authorizationStatus.rawValue)")
+                print("   Alert Setting: \(settings.alertSetting.rawValue)")
+                print("   Sound Setting: \(settings.soundSetting.rawValue)")
+                print("   Badge Setting: \(settings.badgeSetting.rawValue)")
+                
+                if #available(iOS 15.0, *) {
+                    print("   Time Sensitive Setting: \(settings.timeSensitiveSetting.rawValue)")
+                }
+                
+                print("   Lock Screen Setting: \(settings.lockScreenSetting.rawValue)")
+                print("   Notification Center Setting: \(settings.notificationCenterSetting.rawValue)")
+                
+                // Check if notifications are properly configured for alarm functionality
+                if settings.authorizationStatus != .authorized {
+                    print("⚠️ CRITICAL: Notifications not authorized - alarm will NOT work!")
+                }
+                if settings.soundSetting != .enabled {
+                    print("⚠️ CRITICAL: Sound not enabled - alarm will NOT sound!")
+                }
+                if settings.lockScreenSetting != .enabled {
+                    print("⚠️ WARNING: Lock screen notifications disabled - may not show when locked!")
+                }
+            }
         }
     }
 } 

@@ -332,10 +332,14 @@ class SessionManager: ObservableObject {
     
     private func setupAudioSession() {
         do {
-            // Configure audio session for background playback with alarm capability
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+            // Configure audio session for critical alarm functionality
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .default,
+                options: [.mixWithOthers, .duckOthers, .interruptSpokenAudioAndMixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+            )
             try AVAudioSession.sharedInstance().setActive(true)
-            print("✅ Audio session configured for background alarm playback")
+            print("✅ Audio session configured for critical alarm functionality")
         } catch {
             print("❌ Failed to setup audio session: \(error)")
         }
@@ -378,7 +382,11 @@ class SessionManager: ObservableObject {
         
         // Request notification permissions and schedule completion notification
         requestNotificationPermissions()
-        scheduleSessionCompletionNotification(duration: duration)
+        
+        // Debug: Check current notification settings before scheduling
+        checkNotificationSettingsBeforeScheduling {
+            self.scheduleSessionCompletionNotification(duration: duration)
+        }
         
         // Start main session timer
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -405,34 +413,50 @@ class SessionManager: ObservableObject {
         cancelSessionNotification()
         
         // Complete current session
-        if var session = currentSession {
-            session.endDate = Date()
-            session.actualDuration = Date().timeIntervalSince(session.startDate)
-            
-            // Save session
-            sessions.append(session)
-            saveSessions()
-            
-            // Save to HealthKit as a mindful session
-            healthManager?.saveMindfulSession(session)
-            
-            // Recalculate streak after saving new session
-            let streakCount = calculateConsecutiveDays()
-            healthManager?.updateConsecutiveDays(streakCount)
-            
-            // Show save confirmation briefly
-            showSessionSavedMessage = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                self.showSessionSavedMessage = false
-            }
-            
-            currentSession = nil
-        }
+        completeAndSaveSession()
         
         // Play completion sound
         playCompletionSound()
         
         print("✅ Meditation session stopped - timers synchronized")
+    }
+    
+    // MARK: - Safe Session Completion
+    
+    private func completeSessionSafely() {
+        DispatchQueue.main.async {
+            self.stopSession()
+        }
+    }
+    
+    private func completeAndSaveSession() {
+        guard var session = currentSession else { return }
+        
+        session.endDate = Date()
+        session.actualDuration = Date().timeIntervalSince(session.startDate)
+        
+        // Save session immediately and robustly
+        sessions.append(session)
+        saveSessions()
+        
+        // Force save to UserDefaults immediately
+        UserDefaults.standard.synchronize()
+        
+        // Save to HealthKit as a mindful session
+        healthManager?.saveMindfulSession(session)
+        
+        // Recalculate streak after saving new session
+        let streakCount = calculateConsecutiveDays()
+        healthManager?.updateConsecutiveDays(streakCount)
+        
+        // Show save confirmation briefly
+        showSessionSavedMessage = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.showSessionSavedMessage = false
+        }
+        
+        currentSession = nil
+        print("✅ Session completed and saved: \(session.formattedDuration)")
     }
     
     // MARK: - Timer Synchronization Helper
@@ -452,8 +476,18 @@ class SessionManager: ObservableObject {
         
         // Check if session should have ended while app was in background
         if syncedTimeRemaining <= 0 && isSessionActive {
-            print("🔄 Session completed while app was in background - stopping session")
-            stopSession()
+            print("🔄 Session completed while app was in background - completing session safely")
+            completeAndSaveSession()
+            
+            // Update UI state
+            DispatchQueue.main.async {
+                self.isSessionActive = false
+                self.timer?.invalidate()
+                self.timer = nil
+            }
+            
+            // Play completion sound to alert user
+            playCompletionSound()
             return
         }
         
@@ -479,28 +513,49 @@ class SessionManager: ObservableObject {
         // Check if session should end
         if timeRemaining <= 0 {
             print("⏰ Session timer reached zero - completing session")
-            DispatchQueue.main.async {
-                self.stopSession()
-            }
+            // Ensure session is saved even if app is backgrounded
+            self.completeSessionSafely()
         }
     }
     
     private func playCompletionSound() {
         // Ensure audio session is active for sound playback
         do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .default,
+                options: [.mixWithOthers, .duckOthers]
+            )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             print("Failed to activate audio session for completion sound: \(error)")
         }
         
-        // Play system sound for meditation completion
-        AudioServicesPlaySystemSound(1327) // Gentle bell sound
+        // Play multiple system sounds for critical alarm functionality
+        DispatchQueue.main.async {
+            AudioServicesPlaySystemSound(1327) // Gentle bell sound
+        }
         
-        // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        // Additional alarm sounds with delays
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            AudioServicesPlaySystemSound(1327)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            AudioServicesPlaySystemSound(1327)
+        }
+        
+        // Strong haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        print("🔔 Completion sound played")
+        // Additional haptic feedback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            impactFeedback.impactOccurred()
+        }
+        
+        print("🔔 Critical completion sound and haptics played")
     }
     
     // MARK: - Background Task Management
@@ -508,19 +563,84 @@ class SessionManager: ObservableObject {
     private func startBackgroundTask() {
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MeditationTimer") {
             // This block is called when the background task is about to expire
-            print("⚠️ Background task expiring - extending for alarm continuity")
+            print("⚠️ Background task expiring - ensuring session completion")
             DispatchQueue.main.async {
-                // For longer sessions, try to extend background execution
-                if self.timeRemaining > 30 {
-                    print("🔄 Attempting to extend background task for remaining session time")
-                    self.endBackgroundTask()
-                    self.startBackgroundTask() // Restart background task
-                } else {
-                    self.endBackgroundTask()
+                // If session is still active, save current progress and schedule a backup notification
+                if self.isSessionActive {
+                    print("💾 Saving session progress before background task expires")
+                    
+                    // Force save current session state
+                    if var currentSession = self.currentSession {
+                        currentSession.endDate = Date()
+                        currentSession.actualDuration = Date().timeIntervalSince(currentSession.startDate)
+                        
+                        // Save the session even if incomplete
+                        self.sessions.append(currentSession)
+                        self.saveSessions()
+                        UserDefaults.standard.synchronize()
+                        
+                        // Save to HealthKit
+                        self.healthManager?.saveMindfulSession(currentSession)
+                        
+                        print("✅ Session saved before background expiration: \(currentSession.formattedDuration)")
+                    }
+                    
+                    // Schedule a backup notification for when the session should end
+                    if self.timeRemaining > 0 {
+                        self.scheduleBackupCompletionNotification(remainingTime: self.timeRemaining)
+                    }
                 }
+                self.endBackgroundTask()
             }
         }
         print("🔄 Background task started: \(backgroundTaskID.rawValue)")
+    }
+    
+    private func scheduleBackupCompletionNotification(remainingTime: TimeInterval) {
+        let content = UNMutableNotificationContent()
+        content.title = "🧘‍♀️ Meditation Complete"
+        content.body = "Your meditation session has finished while the app was in background."
+        content.sound = UNNotificationSound.default
+        content.badge = 1
+        content.categoryIdentifier = "MEDITATION_COMPLETE"
+        
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
+            content.relevanceScore = 1.0
+        }
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingTime, repeats: false)
+        let request = UNNotificationRequest(identifier: "backup_completion", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule backup notification: \(error)")
+            } else {
+                print("✅ Backup completion notification scheduled for \(Int(remainingTime))s")
+            }
+        }
+        
+        // Schedule additional backup notifications at 10-second intervals
+        for i in 1...3 {
+            let backupContent = UNMutableNotificationContent()
+            backupContent.title = "🧘‍♀️ Meditation Complete"
+            backupContent.body = "Your meditation session has finished. Tap to return to the app."
+            backupContent.sound = UNNotificationSound.default
+            backupContent.badge = 1
+            
+            if #available(iOS 15.0, *) {
+                backupContent.interruptionLevel = .timeSensitive
+            }
+            
+            let backupTrigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingTime + TimeInterval(i * 10), repeats: false)
+            let backupRequest = UNNotificationRequest(identifier: "backup_completion_\(i)", content: backupContent, trigger: backupTrigger)
+            
+            UNUserNotificationCenter.current().add(backupRequest) { error in
+                if error == nil {
+                    print("✅ Backup alarm \(i) scheduled")
+                }
+            }
+        }
     }
     
     private func endBackgroundTask() {
@@ -605,7 +725,7 @@ class SessionManager: ObservableObject {
     // MARK: - Streak Calculation
     
     func calculateConsecutiveDays() -> Int {
-        print("🔍 Calculating consecutive days with strict day boundaries (00:00-23:59)...")
+        print("🔍 Calculating consecutive days...")
         
         guard !sessions.isEmpty else {
             print("⚠️ No sessions found, consecutive days = 0")
@@ -613,7 +733,6 @@ class SessionManager: ObservableObject {
         }
         
         let calendar = Calendar.current
-        var consecutive = 0
         
         // Group sessions by calendar day (using start date)
         var sessionsByDay: Set<Date> = []
@@ -622,67 +741,58 @@ class SessionManager: ObservableObject {
             sessionsByDay.insert(dayStart)
         }
         
+        // Sort session days in descending order (most recent first)
+        let sortedDays = sessionsByDay.sorted(by: >)
+        
         // Get current time and today's start
         let now = Date()
         let today = calendar.startOfDay(for: now)
-        let currentHour = calendar.component(.hour, from: now)
-        let currentMinute = calendar.component(.minute, from: now)
         
-        print("   📅 Current time: \(currentHour):\(String(format: "%02d", currentMinute))")
         print("   📅 Sessions found on \(sessionsByDay.count) different days")
+        print("   📅 Today: \(DateFormatter.localizedString(from: today, dateStyle: .medium, timeStyle: .none))")
         
-        // Check if there's a session today
-        if sessionsByDay.contains(today) {
-            // There's a session today - start counting from today
-            consecutive = 1
-            print("   ✅ Day \(consecutive): Today (session completed)")
+        var consecutive = 0
+        var currentCheckDate = today
+        
+        // Start checking from today and go backwards
+        while sessionsByDay.contains(currentCheckDate) {
+            consecutive += 1
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            print("   ✅ Day \(consecutive): \(formatter.string(from: currentCheckDate))")
             
-            // Check previous days for consecutive streak
-            var checkDate = calendar.date(byAdding: .day, value: -1, to: today)!
-            
-            while sessionsByDay.contains(checkDate) {
-                consecutive += 1
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
-                checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
+            // Move to previous day
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentCheckDate) else {
+                break
             }
-        } else {
-            // No session today - check if streak should continue or be broken
+            currentCheckDate = previousDay
+        }
+        
+        // If no session today, check if yesterday has a session (streak continues for today)
+        if consecutive == 0 {
             let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-            
             if sessionsByDay.contains(yesterday) {
-                // There was a session yesterday
-                // Check if we're still within today's timeframe (before 23:59:59)
-                let endOfToday = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: today)!
+                consecutive = 1
+                print("   ✅ Day 1: Yesterday (streak continues for today)")
                 
-                if now <= endOfToday {
-                    // Still within today - streak continues
-                    consecutive = 1
-                    print("   ✅ Day \(consecutive): Yesterday (today hasn't ended - time: \(currentHour):\(String(format: "%02d", currentMinute)))")
+                // Continue counting backwards from yesterday
+                var checkDate = calendar.date(byAdding: .day, value: -2, to: today)!
+                while sessionsByDay.contains(checkDate) {
+                    consecutive += 1
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
                     
-                    // Check days before yesterday for consecutive streak
-                    var checkDate = calendar.date(byAdding: .day, value: -2, to: today)!
-                    
-                    while sessionsByDay.contains(checkDate) {
-                        consecutive += 1
-                        let formatter = DateFormatter()
-                        formatter.dateStyle = .medium
-                        print("   ✅ Day \(consecutive): \(formatter.string(from: checkDate))")
-                        checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate)!
+                    guard let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else {
+                        break
                     }
-                } else {
-                    // Past midnight of the next day - streak is broken
-                    consecutive = 0
-                    print("   ❌ Past 23:59:59 of today without a session - streak broken")
+                    checkDate = previousDay
                 }
             } else {
-                // No session yesterday - streak is broken
-                consecutive = 0
-                print("   ❌ No session yesterday and none today - streak broken")
+                print("   ❌ No session today or yesterday - streak broken")
                 
                 // Show when the last session was for debugging
-                if let lastSessionDay = sessionsByDay.max() {
+                if let lastSessionDay = sortedDays.first {
                     let formatter = DateFormatter()
                     formatter.dateStyle = .medium
                     let daysBetween = calendar.dateComponents([.day], from: lastSessionDay, to: today).day ?? 0
@@ -725,8 +835,28 @@ class SessionManager: ObservableObject {
         do {
             let data = try JSONEncoder().encode(sessions)
             UserDefaults.standard.set(data, forKey: "MindfulBooSessions")
+            
+            // Force immediate synchronization to disk
+            UserDefaults.standard.synchronize()
+            
+            print("💾 Sessions saved successfully (\(sessions.count) total)")
         } catch {
-            print("Failed to save sessions: \(error)")
+            print("❌ Failed to save sessions: \(error)")
+            
+            // Fallback: try to save individual session data
+            if let latestSession = sessions.last {
+                let sessionData = [
+                    "id": latestSession.id.uuidString,
+                    "startDate": latestSession.startDate.timeIntervalSince1970,
+                    "duration": latestSession.duration,
+                    "endDate": latestSession.endDate?.timeIntervalSince1970 ?? 0,
+                    "actualDuration": latestSession.actualDuration ?? 0
+                ] as [String : Any]
+                
+                UserDefaults.standard.set(sessionData, forKey: "LastSession_\(latestSession.id.uuidString)")
+                UserDefaults.standard.synchronize()
+                print("💾 Fallback: saved latest session individually")
+            }
         }
     }
     
@@ -743,27 +873,34 @@ class SessionManager: ObservableObject {
     // MARK: - Notification Support
     
     private func requestNotificationPermissions() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+        
+        UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
             if let error = error {
-                print("Notification permission error: \(error)")
+                print("❌ Notification permission error: \(error)")
             } else {
-                print("Notification permission granted: \(granted)")
+                print("✅ Notification permission granted: \(granted)")
+                if granted {
+                    print("✅ Standard notifications enabled for locked device alarm functionality")
+                } else {
+                    print("⚠️ Notifications denied - alarm may not work when device is locked")
+                }
             }
         }
     }
     
     private func scheduleSessionCompletionNotification(duration: TimeInterval) {
-        // Always schedule completion notification regardless of settings for the alarm bug fix
+        // Standard alarm notification with maximum effectiveness
         let content = UNMutableNotificationContent()
         content.title = "🧘‍♀️ Meditation Complete"
         content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
-        content.sound = UNNotificationSound.default
         content.badge = 1
         content.categoryIdentifier = "MEDITATION_COMPLETE"
+        content.sound = UNNotificationSound.default
         
-        // Critical notification for alarms to work when device is locked
-        if duration >= 60 { // For sessions 1 minute or longer
-            content.interruptionLevel = .critical
+        // For iOS 15+, use time-sensitive to improve delivery
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
             content.relevanceScore = 1.0
         }
         
@@ -780,14 +917,55 @@ class SessionManager: ObservableObject {
             if let error = error {
                 print("❌ Failed to schedule completion notification: \(error)")
             } else {
-                print("✅ Scheduled completion notification for \(Int(duration/60)) minutes")
+                print("✅ Scheduled time-sensitive completion notification for \(Int(duration/60)) minutes")
             }
         }
+        
+        // Schedule multiple backup alarms at different intervals to ensure notification
+        scheduleBackupAlarms(duration: duration)
         
         // Schedule additional notifications if settings allow
         if let settings = settingsManager?.settings.sessionNotifications, settings.isEnabled {
             scheduleIntervalNotifications(duration: duration, settings: settings)
             scheduleProgressNotifications(duration: duration, settings: settings)
+        }
+    }
+    
+    private func scheduleBackupAlarms(duration: TimeInterval) {
+        // Schedule multiple backup alarms to ensure the user gets notified
+        let backupTimes = [10, 20, 30] // seconds after main notification
+        
+        for (index, delay) in backupTimes.enumerated() {
+            let backupContent = UNMutableNotificationContent()
+            backupContent.title = "🚨 Meditation Session Complete"
+            backupContent.body = "Your meditation timer has finished. Tap to return to the app."
+            backupContent.badge = 1
+            backupContent.sound = UNNotificationSound.default
+            
+            // Time-sensitive for better delivery
+            if #available(iOS 15.0, *) {
+                backupContent.interruptionLevel = .timeSensitive
+                backupContent.relevanceScore = 1.0
+            }
+            
+            let backupTrigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: duration + TimeInterval(delay),
+                repeats: false
+            )
+            
+            let backupRequest = UNNotificationRequest(
+                identifier: "meditation_alarm_backup_\(index)",
+                content: backupContent,
+                trigger: backupTrigger
+            )
+            
+            UNUserNotificationCenter.current().add(backupRequest) { error in
+                if let error = error {
+                    print("❌ Failed to schedule backup alarm \(index): \(error)")
+                } else {
+                    print("✅ Scheduled backup alarm \(index) (\(delay)s delay)")
+                }
+            }
         }
     }
     
@@ -886,6 +1064,14 @@ class SessionManager: ObservableObject {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationIdentifier])
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationIdentifier])
         
+        // Cancel backup completion notifications
+        let backupIds = ["backup_completion", "backup_completion_1", "backup_completion_2", "backup_completion_3"]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: backupIds)
+        
+        // Cancel new backup alarms
+        let backupAlarmIds = (0...2).map { "meditation_alarm_backup_\($0)" }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: backupAlarmIds)
+        
         // Cancel all session-related notifications
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             let sessionIds = requests.compactMap { request in
@@ -899,7 +1085,37 @@ class SessionManager: ObservableObject {
             }
         }
         
-        print("Cancelled session notifications")
+        print("Cancelled all session notifications, backup completion, and backup alarms")
+    }
+    
+    private func checkNotificationSettingsBeforeScheduling(completion: @escaping () -> Void) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            print("\n🔔 PRE-SCHEDULING NOTIFICATION CHECK:")
+            print("   Authorization: \(settings.authorizationStatus.rawValue) (2 = authorized)")
+            print("   Sound: \(settings.soundSetting.rawValue) (2 = enabled)")
+            print("   Lock Screen: \(settings.lockScreenSetting.rawValue) (2 = enabled)")
+            
+            if #available(iOS 15.0, *) {
+                print("   Time Sensitive: \(settings.timeSensitiveSetting.rawValue) (2 = enabled)")
+            }
+            
+            let canSendNotifications = settings.authorizationStatus == .authorized
+            let canPlaySound = settings.soundSetting == .enabled
+            let canShowOnLockScreen = settings.lockScreenSetting == .enabled
+            
+            if canSendNotifications && canPlaySound && canShowOnLockScreen {
+                print("✅ All notification settings optimal for alarm functionality")
+            } else {
+                print("⚠️ ALARM WARNING: Some notification settings may prevent alarm from working properly")
+                if !canSendNotifications { print("   - Notifications not authorized") }
+                if !canPlaySound { print("   - Sound not enabled") }
+                if !canShowOnLockScreen { print("   - Lock screen display not enabled") }
+            }
+            
+            DispatchQueue.main.async {
+                completion()
+            }
+        }
     }
 }
 

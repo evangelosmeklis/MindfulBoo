@@ -7,7 +7,6 @@ struct ContentView: View {
     @State private var selectedMinutes: Int = 5
     @State private var selectedHours: Int = 0
     @State private var isTimerPickerPresented = false
-    @State private var showingHistory = false
     @State private var showingSettings = false
     @State private var currentWeather: WeatherCondition = .clear
     @State private var backgroundColors: [Color] = [.blue, .purple]
@@ -259,40 +258,8 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Bottom actions with Liquid Glass effects
+                // Bottom actions with Liquid Glass effects - Settings only
                 HStack {
-                    Spacer()
-                    Button(action: { showingHistory = true }) {
-                        VStack {
-                            Image(systemName: "chart.line.uptrend.xyaxis")
-                                .font(.title2)
-                            Text("History")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
-                            ZStack {
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .opacity(0.7)
-                                
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.2),
-                                                Color.clear
-                                            ],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
-                            }
-                        )
-                    }
-                    .foregroundColor(.primary)
-                    
                     Spacer()
                     
                     Button(action: { showingSettings = true }) {
@@ -325,6 +292,7 @@ struct ContentView: View {
                         )
                     }
                     .foregroundColor(.primary)
+                    
                     Spacer()
                 }
                 .padding(.bottom, 30)
@@ -355,9 +323,6 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isTimerPickerPresented) {
             DurationPickerView(selectedHours: $selectedHours, selectedMinutes: $selectedMinutes)
-        }
-        .sheet(isPresented: $showingHistory) {
-            SessionHistoryView()
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
