@@ -325,10 +325,23 @@ class HealthKitManager: ObservableObject {
             }
         }
         
+        // Get the kind from the entry, defaulting to momentary emotion
+        let hkKind: HKStateOfMind.Kind
+        if let entryKind = StateOfMindKind(rawValue: entry.kind) {
+            switch entryKind {
+            case .dailyMood:
+                hkKind = .dailyMood
+            case .momentaryEmotion:
+                hkKind = .momentaryEmotion
+            }
+        } else {
+            hkKind = .momentaryEmotion
+        }
+        
         // Create HKStateOfMind with proper iOS 18+ API
         let stateOfMind = HKStateOfMind(
             date: entry.date,
-            kind: .dailyMood,
+            kind: hkKind,
             valence: entry.valence,
             labels: Array(labels),
             associations: []

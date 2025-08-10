@@ -2220,19 +2220,47 @@ enum StateOfMindCategory: String, CaseIterable {
     }
 }
 
+enum StateOfMindKind: String, CaseIterable, Codable {
+    case dailyMood = "dailyMood"
+    case momentaryEmotion = "momentaryEmotion"
+    
+    var displayName: String {
+        switch self {
+        case .dailyMood: return "Overall Day Mood"
+        case .momentaryEmotion: return "Current Feeling"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .dailyMood: return "How you've been feeling throughout the day"
+        case .momentaryEmotion: return "How you're feeling right now in this moment"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .dailyMood: return "calendar.circle.fill"
+        case .momentaryEmotion: return "clock.circle.fill"
+        }
+    }
+}
+
 struct StateOfMindEntry: Identifiable, Codable {
     let id: UUID
     let date: Date
     let emotion: String // Store raw value for compatibility
     let valence: Double // -1 (very unpleasant) to 1 (very pleasant)
     let labels: [String]
+    let kind: String // Store as string for compatibility
     
-    init(emotion: StateOfMindEmotion, valence: Double, labels: [StateOfMindEmotion] = []) {
+    init(emotion: StateOfMindEmotion, valence: Double, labels: [StateOfMindEmotion] = [], kind: StateOfMindKind = .momentaryEmotion) {
         self.id = UUID()
         self.date = Date()
         self.emotion = emotion.rawValue
         self.valence = valence
         self.labels = labels.map { $0.rawValue }
+        self.kind = kind.rawValue
     }
 }
 
@@ -2248,6 +2276,7 @@ struct StateOfMindLoggingView: View {
     @State private var searchText = ""
     @State private var showingSuccessMessage = false
     @State private var selectedCategory: StateOfMindCategory? = nil
+    @State private var selectedKind: StateOfMindKind = .momentaryEmotion
     
     private let emotionsByCategory: [StateOfMindCategory: [StateOfMindEmotion]] = {
         Dictionary(grouping: StateOfMindEmotion.allCases, by: { $0.category })
@@ -2296,6 +2325,69 @@ struct StateOfMindLoggingView: View {
                             Text("Log your current state of mind to track your emotional wellbeing. Health app sync coming with iOS 18.")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    // Kind Selector (Daily Mood vs Momentary Emotion)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("What are you logging?")
+                            .font(.headline)
+                        
+                        HStack(spacing: 12) {
+                            ForEach(StateOfMindKind.allCases, id: \.self) { kind in
+                                Button(action: {
+                                    selectedKind = kind
+                                }) {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: kind.icon)
+                                            .font(.title2)
+                                            .foregroundColor(selectedKind == kind ? .white : .primary)
+                                        
+                                        Text(kind.displayName)
+                                            .font(.headline)
+                                            .foregroundColor(selectedKind == kind ? .white : .primary)
+                                        
+                                        Text(kind.description)
+                                            .font(.caption)
+                                            .foregroundColor(selectedKind == kind ? .white.opacity(0.8) : .secondary)
+                                            .multilineTextAlignment(.center)
+                                            .lineLimit(2)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(selectedKind == kind ? .blue : .gray.opacity(0.1))
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 16)
+                                                        .fill(.thinMaterial)
+                                                )
+                                            
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color.white.opacity(selectedKind == kind ? 0.4 : 0.2),
+                                                            Color.clear
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                            
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(
+                                                    selectedKind == kind ? .blue : Color.white.opacity(0.1),
+                                                    lineWidth: selectedKind == kind ? 2 : 0.5
+                                                )
+                                        }
+                                    )
+                                }
+                                .scaleEffect(selectedKind == kind ? 1.02 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedKind)
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -2383,18 +2475,20 @@ struct StateOfMindLoggingView: View {
                                 isSelected: selectedEmotion == emotion,
                                 isSecondarySelected: selectedLabels.contains(emotion)
                             ) {
-                                if selectedEmotion == emotion {
-                                    selectedEmotion = nil
-                                } else {
-                                    selectedEmotion = emotion
-                                    // Auto-set valence based on emotion category
-                                    switch emotion.category {
-                                    case .positive: valence = 0.7
-                                    case .balanced: valence = 0.2
-                                    case .negative: valence = -0.6
-                                    case .challenging: valence = -0.8
-                                    case .neutral: valence = 0.0
-                                    case .intense: valence = 0.5
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if selectedEmotion == emotion {
+                                        selectedEmotion = nil
+                                    } else {
+                                        selectedEmotion = emotion
+                                        // Auto-set valence based on emotion category
+                                        switch emotion.category {
+                                        case .positive: valence = 0.7
+                                        case .balanced: valence = 0.2
+                                        case .negative: valence = -0.6
+                                        case .challenging: valence = -0.8
+                                        case .neutral: valence = 0.0
+                                        case .intense: valence = 0.5
+                                        }
                                     }
                                 }
                             }
@@ -2527,11 +2621,11 @@ struct StateOfMindLoggingView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                         if #available(iOS 18.0, *) {
-                            Text("State of Mind logged to Health app")
+                            Text("\(selectedKind.displayName) logged to Health app")
                                 .font(.subheadline)
                                 .foregroundColor(.primary)
                         } else {
-                            Text("State of Mind logged successfully")
+                            Text("\(selectedKind.displayName) logged successfully")
                                 .font(.subheadline)
                                 .foregroundColor(.primary)
                         }
@@ -2571,7 +2665,8 @@ struct StateOfMindLoggingView: View {
         let entry = StateOfMindEntry(
             emotion: selectedEmotion,
             valence: valence,
-            labels: Array(selectedLabels)
+            labels: Array(selectedLabels),
+            kind: selectedKind
         )
         
         healthStore.saveStateOfMind(entry)
@@ -2642,8 +2737,8 @@ struct EmotionCard: View {
                 }
             )
         }
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .scaleEffect(isSelected ? 1.03 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 
