@@ -345,6 +345,21 @@ class SessionManager: ObservableObject {
         }
     }
     
+    private func setupCriticalAudioSession() {
+        do {
+            // More aggressive audio session for alarm notifications
+            try AVAudioSession.sharedInstance().setCategory(
+                .playAndRecord,
+                mode: .default,
+                options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .overrideMutedMicrophoneInterruption]
+            )
+            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+            print("🚨 Critical audio session activated for alarm")
+        } catch {
+            print("❌ Failed to setup critical audio session: \(error)")
+        }
+    }
+    
     func startSession(duration: TimeInterval) {
         print("🚀 startSession called with duration: \(duration/60) minutes")
         
@@ -382,6 +397,9 @@ class SessionManager: ObservableObject {
         
         // Request notification permissions and schedule completion notification
         requestNotificationPermissions()
+        
+        // Setup critical audio session for alarm functionality
+        setupCriticalAudioSession()
         
         // Debug: Check current notification settings before scheduling
         checkNotificationSettingsBeforeScheduling {
@@ -896,11 +914,11 @@ class SessionManager: ObservableObject {
         content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
         content.badge = 1
         content.categoryIdentifier = "MEDITATION_COMPLETE"
-        content.sound = UNNotificationSound.default
+        content.sound = UNNotificationSound.defaultCritical
         
-        // For iOS 15+, use time-sensitive to improve delivery
+        // For iOS 15+, use critical interruption level to break through Do Not Disturb and locked screen
         if #available(iOS 15.0, *) {
-            content.interruptionLevel = .timeSensitive
+            content.interruptionLevel = .critical
             content.relevanceScore = 1.0
         }
         
@@ -924,6 +942,9 @@ class SessionManager: ObservableObject {
         // Schedule multiple backup alarms at different intervals to ensure notification
         scheduleBackupAlarms(duration: duration)
         
+        // Schedule rapid-fire alarm sequence for locked device scenarios
+        scheduleRapidFireAlarms(duration: duration)
+        
         // Schedule additional notifications if settings allow
         if let settings = settingsManager?.settings.sessionNotifications, settings.isEnabled {
             scheduleIntervalNotifications(duration: duration, settings: settings)
@@ -940,11 +961,11 @@ class SessionManager: ObservableObject {
             backupContent.title = "🚨 Meditation Session Complete"
             backupContent.body = "Your meditation timer has finished. Tap to return to the app."
             backupContent.badge = 1
-            backupContent.sound = UNNotificationSound.default
+            backupContent.sound = UNNotificationSound.defaultCritical
             
-            // Time-sensitive for better delivery
+            // Critical interruption for backup alarms
             if #available(iOS 15.0, *) {
-                backupContent.interruptionLevel = .timeSensitive
+                backupContent.interruptionLevel = .critical
                 backupContent.relevanceScore = 1.0
             }
             
@@ -967,6 +988,44 @@ class SessionManager: ObservableObject {
                 }
             }
         }
+    }
+    
+    private func scheduleRapidFireAlarms(duration: TimeInterval) {
+        // Schedule rapid-fire alarms to break through iOS power management
+        let rapidFireDelays = [0, 3, 6, 9, 12, 15, 20, 25, 30] // seconds after main alarm
+        
+        for (index, delay) in rapidFireDelays.enumerated() {
+            let rapidContent = UNMutableNotificationContent()
+            rapidContent.title = "🚨 Meditation Timer Complete"
+            rapidContent.body = "Your meditation session has finished. Wake up!"
+            rapidContent.badge = 1
+            rapidContent.sound = UNNotificationSound.defaultCritical
+            
+            // Maximum interruption level
+            if #available(iOS 15.0, *) {
+                rapidContent.interruptionLevel = .critical
+                rapidContent.relevanceScore = 1.0
+            }
+            
+            let rapidTrigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: duration + TimeInterval(delay),
+                repeats: false
+            )
+            
+            let rapidRequest = UNNotificationRequest(
+                identifier: "meditation_rapid_alarm_\(index)",
+                content: rapidContent,
+                trigger: rapidTrigger
+            )
+            
+            UNUserNotificationCenter.current().add(rapidRequest) { error in
+                if error == nil {
+                    print("✅ Scheduled rapid-fire alarm \(index) (\(delay)s delay)")
+                }
+            }
+        }
+        
+        print("🚨 Scheduled \(rapidFireDelays.count) rapid-fire critical alarms")
     }
     
     private func scheduleIntervalNotifications(duration: TimeInterval, settings: SessionNotificationSettings) {
@@ -1071,6 +1130,10 @@ class SessionManager: ObservableObject {
         // Cancel new backup alarms
         let backupAlarmIds = (0...2).map { "meditation_alarm_backup_\($0)" }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: backupAlarmIds)
+        
+        // Cancel rapid-fire alarms
+        let rapidFireAlarmIds = (0...8).map { "meditation_rapid_alarm_\($0)" }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: rapidFireAlarmIds)
         
         // Cancel all session-related notifications
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
@@ -2023,5 +2086,609 @@ struct AddReminderView: View {
 #Preview {
     SettingsView()
         .environmentObject(SettingsManager())
+}
+
+// MARK: - State of Mind Models
+
+enum StateOfMindEmotion: String, CaseIterable, Identifiable {
+    case amazed = "amazed"
+    case amused = "amused"
+    case angry = "angry"
+    case annoyed = "annoyed"
+    case anxious = "anxious"
+    case ashamed = "ashamed"
+    case brave = "brave"
+    case calm = "calm"
+    case confident = "confident"
+    case content = "content"
+    case determined = "determined"
+    case disappointed = "disappointed"
+    case disgusted = "disgusted"
+    case embarrassed = "embarrassed"
+    case excited = "excited"
+    case frustrated = "frustrated"
+    case grateful = "grateful"
+    case happy = "happy"
+    case hopeful = "hopeful"
+    case indifferent = "indifferent"
+    case irritated = "irritated"
+    case jealous = "jealous"
+    case joyful = "joyful"
+    case lonely = "lonely"
+    case passionate = "passionate"
+    case peaceful = "peaceful"
+    case pleased = "pleased"
+    case proud = "proud"
+    case relieved = "relieved"
+    case sad = "sad"
+    case scared = "scared"
+    case stressed = "stressed"
+    case surprised = "surprised"
+    case worried = "worried"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        rawValue.capitalized
+    }
+    
+    var emoji: String {
+        switch self {
+        case .amazed: return "🤩"
+        case .amused: return "😄"
+        case .angry: return "😠"
+        case .annoyed: return "😤"
+        case .anxious: return "😰"
+        case .ashamed: return "😳"
+        case .brave: return "💪"
+        case .calm: return "😌"
+        case .confident: return "😎"
+        case .content: return "😊"
+        case .determined: return "😤"
+        case .disappointed: return "😞"
+        case .disgusted: return "🤢"
+        case .embarrassed: return "😅"
+        case .excited: return "🤗"
+        case .frustrated: return "😫"
+        case .grateful: return "🙏"
+        case .happy: return "😊"
+        case .hopeful: return "🌟"
+        case .indifferent: return "😐"
+        case .irritated: return "😒"
+        case .jealous: return "😡"
+        case .joyful: return "😄"
+        case .lonely: return "😔"
+        case .passionate: return "🔥"
+        case .peaceful: return "☮️"
+        case .pleased: return "😌"
+        case .proud: return "🦚"
+        case .relieved: return "😌"
+        case .sad: return "😢"
+        case .scared: return "😨"
+        case .stressed: return "😩"
+        case .surprised: return "😲"
+        case .worried: return "😟"
+        }
+    }
+    
+    var category: StateOfMindCategory {
+        switch self {
+        case .happy, .joyful, .content, .pleased, .grateful, .excited, .amazed, .amused:
+            return .positive
+        case .calm, .peaceful, .confident, .relieved, .hopeful, .determined, .brave:
+            return .balanced
+        case .sad, .lonely, .disappointed, .worried, .anxious, .scared, .stressed:
+            return .negative
+        case .angry, .frustrated, .annoyed, .irritated, .disgusted, .jealous:
+            return .challenging
+        case .indifferent, .ashamed, .embarrassed:
+            return .neutral
+        case .passionate, .surprised, .proud:
+            return .intense
+        }
+    }
+}
+
+enum StateOfMindCategory: String, CaseIterable {
+    case positive = "positive"
+    case balanced = "balanced" 
+    case negative = "negative"
+    case challenging = "challenging"
+    case neutral = "neutral"
+    case intense = "intense"
+    
+    var displayName: String {
+        switch self {
+        case .positive: return "Positive"
+        case .balanced: return "Balanced"
+        case .negative: return "Difficult"
+        case .challenging: return "Challenging"
+        case .neutral: return "Neutral"
+        case .intense: return "Intense"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .positive: return .green
+        case .balanced: return .blue
+        case .negative: return .purple
+        case .challenging: return .red
+        case .neutral: return .gray
+        case .intense: return .orange
+        }
+    }
+}
+
+struct StateOfMindEntry: Identifiable, Codable {
+    let id: UUID
+    let date: Date
+    let emotion: String // Store raw value for compatibility
+    let valence: Double // -1 (very unpleasant) to 1 (very pleasant)
+    let labels: [String]
+    
+    init(emotion: StateOfMindEmotion, valence: Double, labels: [StateOfMindEmotion] = []) {
+        self.id = UUID()
+        self.date = Date()
+        self.emotion = emotion.rawValue
+        self.valence = valence
+        self.labels = labels.map { $0.rawValue }
+    }
+}
+
+// MARK: - State of Mind Logging UI
+
+struct StateOfMindLoggingView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var healthStore: HealthKitManager
+    
+    @State private var selectedEmotion: StateOfMindEmotion?
+    @State private var valence: Double = 0.0
+    @State private var selectedLabels: Set<StateOfMindEmotion> = []
+    @State private var searchText = ""
+    @State private var showingSuccessMessage = false
+    @State private var selectedCategory: StateOfMindCategory? = nil
+    
+    private let emotionsByCategory: [StateOfMindCategory: [StateOfMindEmotion]] = {
+        Dictionary(grouping: StateOfMindEmotion.allCases, by: { $0.category })
+    }()
+    
+    private var filteredCategories: [StateOfMindCategory] {
+        if let selectedCategory = selectedCategory {
+            return [selectedCategory]
+        }
+        return StateOfMindCategory.allCases
+    }
+    
+    private var filteredEmotions: [StateOfMindEmotion] {
+        let emotions: [StateOfMindEmotion]
+        
+        if let selectedCategory = selectedCategory {
+            emotions = emotionsByCategory[selectedCategory] ?? []
+        } else {
+            emotions = StateOfMindEmotion.allCases
+        }
+        
+        if searchText.isEmpty {
+            return emotions
+        } else {
+            return emotions.filter { emotion in
+                emotion.displayName.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("How are you feeling?")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        if #available(iOS 18.0, *) {
+                            Text("Log your current state of mind to track your emotional wellbeing in the Health app.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Log your current state of mind to track your emotional wellbeing. Health app sync coming with iOS 18.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    // Category Filter
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            // All button
+                            Button("All") {
+                                selectedCategory = nil
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                ZStack {
+                                    Capsule()
+                                        .fill(selectedCategory == nil ? .blue.opacity(0.2) : .gray.opacity(0.1))
+                                        .background(
+                                            Capsule()
+                                                .fill(.thinMaterial)
+                                        )
+                                    
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.3),
+                                                    Color.clear
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                }
+                            )
+                            .foregroundColor(selectedCategory == nil ? .blue : .primary)
+                            
+                            ForEach(StateOfMindCategory.allCases, id: \.self) { category in
+                                Button(category.displayName) {
+                                    selectedCategory = category
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    ZStack {
+                                        Capsule()
+                                            .fill(selectedCategory == category ? category.color.opacity(0.2) : .gray.opacity(0.1))
+                                            .background(
+                                                Capsule()
+                                                    .fill(.thinMaterial)
+                                            )
+                                        
+                                        Capsule()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.3),
+                                                        Color.clear
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    }
+                                )
+                                .foregroundColor(selectedCategory == category ? category.color : .primary)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    // Search Bar
+                    SearchBar(text: $searchText)
+                        .padding(.horizontal)
+                    
+                    // Emotions Grid
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 12) {
+                        ForEach(filteredEmotions) { emotion in
+                            EmotionCard(
+                                emotion: emotion,
+                                isSelected: selectedEmotion == emotion,
+                                isSecondarySelected: selectedLabels.contains(emotion)
+                            ) {
+                                if selectedEmotion == emotion {
+                                    selectedEmotion = nil
+                                } else {
+                                    selectedEmotion = emotion
+                                    // Auto-set valence based on emotion category
+                                    switch emotion.category {
+                                    case .positive: valence = 0.7
+                                    case .balanced: valence = 0.2
+                                    case .negative: valence = -0.6
+                                    case .challenging: valence = -0.8
+                                    case .neutral: valence = 0.0
+                                    case .intense: valence = 0.5
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    // Valence Slider
+                    if selectedEmotion != nil {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("How pleasant is this feeling?")
+                                .font(.headline)
+                            
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Text("Very Unpleasant")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("Very Pleasant")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Slider(value: $valence, in: -1...1, step: 0.1)
+                                    .accentColor(valence >= 0 ? .green : .red)
+                                
+                                Text("Current: \(valence >= 0 ? "+" : "")\(String(format: "%.1f", valence))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding()
+                        .background(
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.regularMaterial)
+                                    .opacity(0.9)
+                                
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.3),
+                                                Color.clear,
+                                                (valence >= 0 ? Color.green : Color.red).opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(
+                                        Color.white.opacity(0.1),
+                                        lineWidth: 1
+                                    )
+                            }
+                        )
+                        .padding(.horizontal)
+                    }
+                    
+                    // Save Button
+                    if selectedEmotion != nil {
+                        Button(action: saveStateOfMind) {
+                            HStack {
+                                Image(systemName: "heart.fill")
+                                Text("Log State of Mind")
+                                    .fontWeight(.semibold)
+                            }
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.pink,
+                                                    Color.purple,
+                                                    Color.blue
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                    
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(.thinMaterial)
+                                        .opacity(0.3)
+                                    
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.6),
+                                                    Color.clear,
+                                                    Color.white.opacity(0.3)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .blendMode(.overlay)
+                                }
+                            )
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 20)
+                    }
+                }
+            }
+            .navigationTitle("State of Mind")
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+        .overlay(
+            // Success message overlay
+            VStack {
+                Spacer()
+                if showingSuccessMessage {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        if #available(iOS 18.0, *) {
+                            Text("State of Mind logged to Health app")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        } else {
+                            Text("State of Mind logged successfully")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    .padding()
+                    .background(
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(.regularMaterial)
+                                .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                            
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.clear,
+                                            Color.green.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showingSuccessMessage)
+                    .padding(.bottom, 100)
+                }
+            }
+        )
+    }
+    
+    private func saveStateOfMind() {
+        guard let selectedEmotion = selectedEmotion else { return }
+        
+        let entry = StateOfMindEntry(
+            emotion: selectedEmotion,
+            valence: valence,
+            labels: Array(selectedLabels)
+        )
+        
+        healthStore.saveStateOfMind(entry)
+        
+        // Show success message
+        showingSuccessMessage = true
+        
+        // Dismiss after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            presentationMode.wrappedValue.dismiss()
+        }
+        
+        // Hide success message after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            showingSuccessMessage = false
+        }
+    }
+}
+
+struct EmotionCard: View {
+    let emotion: StateOfMindEmotion
+    let isSelected: Bool
+    let isSecondarySelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Text(emotion.emoji)
+                    .font(.title)
+                
+                Text(emotion.displayName)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundColor(isSelected ? .white : .primary)
+            .frame(height: 80)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isSelected ? emotion.category.color : .gray.opacity(0.1))
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.thinMaterial)
+                        )
+                    
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isSelected ? 0.4 : 0.2),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isSelected ? emotion.category.color : Color.white.opacity(0.1),
+                            lineWidth: isSelected ? 2 : 0.5
+                        )
+                }
+            )
+        }
+        .scaleEffect(isSelected ? 1.05 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+    }
+}
+
+struct SearchBar: View {
+    @Binding var text: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.gray)
+            
+            TextField("Search emotions...", text: $text)
+                .textFieldStyle(PlainTextFieldStyle())
+            
+            if !text.isEmpty {
+                Button("Clear") {
+                    text = ""
+                }
+                .foregroundColor(.blue)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.thinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(.gray.opacity(0.1))
+                    )
+                
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        )
+    }
 }
 

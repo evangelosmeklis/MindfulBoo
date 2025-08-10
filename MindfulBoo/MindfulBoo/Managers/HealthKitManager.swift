@@ -8,11 +8,13 @@ class HealthKitManager: ObservableObject {
     @Published var lastError: Error?
     @Published var consecutiveDays = 0
     private let typesToRead: Set<HKSampleType> = [
-        HKCategoryType(.mindfulSession)
+        HKCategoryType(.mindfulSession),
+        HKObjectType.stateOfMindType()
     ]
     
     private let typesToWrite: Set<HKSampleType> = [
-        HKCategoryType(.mindfulSession)
+        HKCategoryType(.mindfulSession),
+        HKObjectType.stateOfMindType()
     ]
     
     init() {
@@ -282,5 +284,164 @@ class HealthKitManager: ObservableObject {
     func updateConsecutiveDays(_ count: Int) {
         consecutiveDays = count
         print("✅ Updated consecutiveDays to: \(consecutiveDays)")
+    }
+    
+    // MARK: - State of Mind Support
+    
+    @available(iOS 18.0, *)
+    func saveStateOfMind(_ entry: StateOfMindEntry) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("HealthKit is not available on this device")
+            return
+        }
+        
+        // Check authorization for State of Mind
+        let stateOfMindType = HKObjectType.stateOfMindType()
+        let authStatus = healthStore.authorizationStatus(for: stateOfMindType)
+        
+        guard authStatus == .sharingAuthorized else {
+            print("HealthKit not authorized for State of Mind - status: \(authStatus.rawValue)")
+            if authStatus == .notDetermined {
+                print("Requesting State of Mind permissions...")
+                requestPermissions()
+            }
+            return
+        }
+        
+        // Create labels array from emotions
+        var labels: Set<HKStateOfMind.Label> = []
+        
+        // Add primary emotion
+        if let primaryEmotion = StateOfMindEmotion(rawValue: entry.emotion),
+           let hkLabel = mapEmotionToHKLabel(primaryEmotion) {
+            labels.insert(hkLabel)
+        }
+        
+        // Add additional emotion labels
+        for labelString in entry.labels {
+            if let emotion = StateOfMindEmotion(rawValue: labelString),
+               let hkLabel = mapEmotionToHKLabel(emotion) {
+                labels.insert(hkLabel)
+            }
+        }
+        
+        // Create HKStateOfMind with proper iOS 18+ API
+        let stateOfMind = HKStateOfMind(
+            date: entry.date,
+            kind: .dailyMood,
+            valence: entry.valence,
+            labels: Array(labels),
+            associations: []
+        )
+        
+        // Save to HealthKit
+        healthStore.save(stateOfMind) { [weak self] success, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.lastError = error
+                    print("❌ Failed to save State of Mind to HealthKit: \(error.localizedDescription)")
+                } else {
+                    print("✅ State of Mind saved successfully to Health app!")
+                    print("🎯 Emotion: \(entry.emotion), Valence: \(entry.valence)")
+                }
+            }
+        }
+    }
+    
+    @available(iOS 18.0, *)
+    private func mapEmotionToHKLabel(_ emotion: StateOfMindEmotion) -> HKStateOfMind.Label? {
+        // Map to basic emotions that are definitely available in HealthKit
+        switch emotion {
+        case .amazed: return .amazed
+        case .amused: return .amused  
+        case .angry: return .angry
+        case .annoyed: return .annoyed
+        case .anxious: return .anxious
+        case .ashamed: return .ashamed
+        case .brave: return .brave
+        case .calm: return .calm
+        case .confident: return .confident
+        case .content: return .content
+        case .determined: return .confident // Map to similar emotion
+        case .disappointed: return .disappointed
+        case .disgusted: return .disgusted
+        case .embarrassed: return .embarrassed
+        case .excited: return .excited
+        case .frustrated: return .frustrated
+        case .grateful: return .grateful
+        case .happy: return .happy
+        case .hopeful: return .hopeful
+        case .indifferent: return .indifferent
+        case .irritated: return .irritated
+        case .jealous: return .jealous
+        case .joyful: return .joyful
+        case .lonely: return .lonely
+        case .passionate: return .passionate
+        case .peaceful: return .peaceful
+        case .pleased: return .happy // Map to similar emotion
+        case .proud: return .proud
+        case .relieved: return .relieved
+        case .sad: return .sad
+        case .scared: return .scared
+        case .stressed: return .stressed
+        case .surprised: return .surprised
+        case .worried: return .worried
+        }
+    }
+    
+    private func saveMoodEntryLocally(_ entry: StateOfMindEntry) {
+        // Save to UserDefaults for now - this can be migrated to HealthKit later
+        var existingEntries = getMoodEntriesFromUserDefaults()
+        existingEntries.append(entry)
+        
+        do {
+            let data = try JSONEncoder().encode(existingEntries)
+            UserDefaults.standard.set(data, forKey: "MindfulBooMoodEntries")
+            print("💾 Mood entry saved locally")
+        } catch {
+            print("❌ Failed to save mood entry locally: \(error)")
+        }
+    }
+    
+    private func getMoodEntriesFromUserDefaults() -> [StateOfMindEntry] {
+        guard let data = UserDefaults.standard.data(forKey: "MindfulBooMoodEntries") else { return [] }
+        
+        do {
+            return try JSONDecoder().decode([StateOfMindEntry].self, from: data)
+        } catch {
+            print("Failed to load mood entries: \(error)")
+            return []
+        }
+    }
+    
+    
+    var canLogStateOfMind: Bool {
+        if #available(iOS 18.0, *) {
+            guard HKHealthStore.isHealthDataAvailable() else { return false }
+            let stateOfMindStatus = healthStore.authorizationStatus(for: HKObjectType.stateOfMindType())
+            return stateOfMindStatus == .sharingAuthorized
+        }
+        return false
+    }
+    
+    var stateOfMindPermissionStatus: String {
+        if #available(iOS 18.0, *) {
+            guard HKHealthStore.isHealthDataAvailable() else { return "HealthKit not available" }
+            
+            let stateOfMindStatus = healthStore.authorizationStatus(for: HKObjectType.stateOfMindType())
+            if stateOfMindStatus == .sharingAuthorized {
+                return "State of Mind syncing to Health app ✅"
+            } else {
+                switch stateOfMindStatus {
+                case .notDetermined:
+                    return "Tap to enable State of Mind logging"
+                case .sharingDenied:
+                    return "State of Mind access denied - check Settings"
+                @unknown default:
+                    return "State of Mind permissions required"
+                }
+            }
+        }
+        return "State of Mind requires iOS 18+"
     }
 } 

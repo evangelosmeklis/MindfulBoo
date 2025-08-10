@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var selectedHours: Int = 0
     @State private var isTimerPickerPresented = false
     @State private var showingSettings = false
+    @State private var showingStateOfMind = false
     @State private var currentWeather: WeatherCondition = .clear
     @State private var backgroundColors: [Color] = [.blue, .purple]
 
@@ -226,31 +227,57 @@ struct ContentView: View {
                         }
                         
                         // HealthKit status indicator
-                        if healthStore.isAuthorized {
-                            HStack {
-                                Image(systemName: "heart.fill")
-                                    .foregroundColor(.green)
-                                    .font(.caption)
-                                Text("Sessions sync with Health app")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.top, 8)
-                        } else {
-                            Button(action: {
-                                healthStore.requestPermissions()
-                            }) {
+                        VStack(spacing: 4) {
+                            if healthStore.isAuthorized {
                                 HStack {
-                                    Image(systemName: "heart")
-                                        .foregroundColor(.red)
+                                    Image(systemName: "heart.fill")
+                                        .foregroundColor(.green)
                                         .font(.caption)
-                                    Text("Tap to enable Health app sync")
+                                    Text("Sessions sync with Health app")
                                         .font(.caption)
-                                        .foregroundColor(.red)
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                Button(action: {
+                                    healthStore.requestPermissions()
+                                }) {
+                                    HStack {
+                                        Image(systemName: "heart")
+                                            .foregroundColor(.red)
+                                            .font(.caption)
+                                        Text("Tap to enable Health app sync")
+                                            .font(.caption)
+                                            .foregroundColor(.red)
+                                    }
                                 }
                             }
-                            .padding(.top, 8)
+                            
+                            // State of Mind status
+                            if healthStore.canLogStateOfMind {
+                                HStack {
+                                    Image(systemName: "brain.head.profile")
+                                        .foregroundColor(.pink)
+                                        .font(.caption)
+                                    Text("Mood logging ready")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            } else {
+                                Button(action: {
+                                    healthStore.requestPermissions()
+                                }) {
+                                    HStack {
+                                        Image(systemName: "brain.head.profile")
+                                            .foregroundColor(.orange)
+                                            .font(.caption)
+                                        Text("Enable mood logging")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                            }
                         }
+                        .padding(.top, 8)
                         
 
                     }
@@ -258,9 +285,46 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Bottom actions with Liquid Glass effects - Settings only
-                HStack {
+                // Bottom actions with Liquid Glass effects
+                HStack(spacing: 40) {
                     Spacer()
+                    
+                    // State of Mind Button
+                    Button(action: { showingStateOfMind = true }) {
+                        VStack {
+                            Image(systemName: "heart.fill")
+                                .font(.title2)
+                            Text("Mood Log")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            ZStack {
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.7)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.pink.opacity(0.1))
+                                    )
+                                
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.3),
+                                                Color.clear,
+                                                Color.pink.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            }
+                        )
+                    }
+                    .foregroundColor(.pink)
                     
                     Button(action: { showingSettings = true }) {
                         VStack {
@@ -326,6 +390,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showingStateOfMind) {
+            StateOfMindLoggingView()
         }
 
 
