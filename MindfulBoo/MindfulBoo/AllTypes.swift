@@ -603,10 +603,7 @@ class SessionManager: ObservableObject {
                         print("✅ Session saved before background expiration: \(currentSession.formattedDuration)")
                     }
                     
-                    // Schedule a backup notification for when the session should end
-                    if self.timeRemaining > 0 {
-                        self.scheduleBackupCompletionNotification(remainingTime: self.timeRemaining)
-                    }
+                    // Session will complete when app comes back to foreground
                 }
                 self.endBackgroundTask()
             }
@@ -908,7 +905,7 @@ class SessionManager: ObservableObject {
     }
     
     private func scheduleSessionCompletionNotification(duration: TimeInterval) {
-        // Standard alarm notification with maximum effectiveness
+        // Single, effective notification for session completion
         let content = UNMutableNotificationContent()
         content.title = "🧘‍♀️ Meditation Complete"
         content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
@@ -935,17 +932,11 @@ class SessionManager: ObservableObject {
             if let error = error {
                 print("❌ Failed to schedule completion notification: \(error)")
             } else {
-                print("✅ Scheduled time-sensitive completion notification for \(Int(duration/60)) minutes")
+                print("✅ Scheduled completion notification for \(Int(duration/60)) minutes")
             }
         }
         
-        // Schedule multiple backup alarms at different intervals to ensure notification
-        scheduleBackupAlarms(duration: duration)
-        
-        // Schedule rapid-fire alarm sequence for locked device scenarios
-        scheduleRapidFireAlarms(duration: duration)
-        
-        // Schedule additional notifications if settings allow
+        // Schedule additional notifications only if settings allow
         if let settings = settingsManager?.settings.sessionNotifications, settings.isEnabled {
             scheduleIntervalNotifications(duration: duration, settings: settings)
             scheduleProgressNotifications(duration: duration, settings: settings)
@@ -2091,40 +2082,16 @@ struct AddReminderView: View {
 // MARK: - State of Mind Models
 
 enum StateOfMindEmotion: String, CaseIterable, Identifiable {
-    case amazed = "amazed"
-    case amused = "amused"
-    case angry = "angry"
-    case annoyed = "annoyed"
-    case anxious = "anxious"
-    case ashamed = "ashamed"
-    case brave = "brave"
-    case calm = "calm"
-    case confident = "confident"
-    case content = "content"
-    case determined = "determined"
-    case disappointed = "disappointed"
-    case disgusted = "disgusted"
-    case embarrassed = "embarrassed"
-    case excited = "excited"
-    case frustrated = "frustrated"
-    case grateful = "grateful"
     case happy = "happy"
-    case hopeful = "hopeful"
-    case indifferent = "indifferent"
-    case irritated = "irritated"
-    case jealous = "jealous"
-    case joyful = "joyful"
-    case lonely = "lonely"
-    case passionate = "passionate"
-    case peaceful = "peaceful"
-    case pleased = "pleased"
-    case proud = "proud"
-    case relieved = "relieved"
+    case calm = "calm"
+    case excited = "excited"
+    case grateful = "grateful"
+    case content = "content"
+    case anxious = "anxious"
     case sad = "sad"
-    case scared = "scared"
+    case angry = "angry"
     case stressed = "stressed"
-    case surprised = "surprised"
-    case worried = "worried"
+    case frustrated = "frustrated"
     
     var id: String { rawValue }
     
@@ -2134,57 +2101,29 @@ enum StateOfMindEmotion: String, CaseIterable, Identifiable {
     
     var emoji: String {
         switch self {
-        case .amazed: return "🤩"
-        case .amused: return "😄"
-        case .angry: return "😠"
-        case .annoyed: return "😤"
-        case .anxious: return "😰"
-        case .ashamed: return "😳"
-        case .brave: return "💪"
-        case .calm: return "😌"
-        case .confident: return "😎"
-        case .content: return "😊"
-        case .determined: return "😤"
-        case .disappointed: return "😞"
-        case .disgusted: return "🤢"
-        case .embarrassed: return "😅"
-        case .excited: return "🤗"
-        case .frustrated: return "😫"
-        case .grateful: return "🙏"
         case .happy: return "😊"
-        case .hopeful: return "🌟"
-        case .indifferent: return "😐"
-        case .irritated: return "😒"
-        case .jealous: return "😡"
-        case .joyful: return "😄"
-        case .lonely: return "😔"
-        case .passionate: return "🔥"
-        case .peaceful: return "☮️"
-        case .pleased: return "😌"
-        case .proud: return "🦚"
-        case .relieved: return "😌"
+        case .calm: return "😌"
+        case .excited: return "🤗"
+        case .grateful: return "🙏"
+        case .content: return "😊"
+        case .anxious: return "😰"
         case .sad: return "😢"
-        case .scared: return "😨"
+        case .angry: return "😠"
         case .stressed: return "😩"
-        case .surprised: return "😲"
-        case .worried: return "😟"
+        case .frustrated: return "😫"
         }
     }
     
     var category: StateOfMindCategory {
         switch self {
-        case .happy, .joyful, .content, .pleased, .grateful, .excited, .amazed, .amused:
+        case .happy, .content, .grateful, .excited:
             return .positive
-        case .calm, .peaceful, .confident, .relieved, .hopeful, .determined, .brave:
+        case .calm:
             return .balanced
-        case .sad, .lonely, .disappointed, .worried, .anxious, .scared, .stressed:
+        case .sad, .anxious, .stressed:
             return .negative
-        case .angry, .frustrated, .annoyed, .irritated, .disgusted, .jealous:
+        case .angry, .frustrated:
             return .challenging
-        case .indifferent, .ashamed, .embarrassed:
-            return .neutral
-        case .passionate, .surprised, .proud:
-            return .intense
         }
     }
 }
@@ -2273,39 +2212,8 @@ struct StateOfMindLoggingView: View {
     @State private var selectedEmotion: StateOfMindEmotion?
     @State private var valence: Double = 0.0
     @State private var selectedLabels: Set<StateOfMindEmotion> = []
-    @State private var searchText = ""
     @State private var showingSuccessMessage = false
-    @State private var selectedCategory: StateOfMindCategory? = nil
     @State private var selectedKind: StateOfMindKind = .momentaryEmotion
-    
-    private let emotionsByCategory: [StateOfMindCategory: [StateOfMindEmotion]] = {
-        Dictionary(grouping: StateOfMindEmotion.allCases, by: { $0.category })
-    }()
-    
-    private var filteredCategories: [StateOfMindCategory] {
-        if let selectedCategory = selectedCategory {
-            return [selectedCategory]
-        }
-        return StateOfMindCategory.allCases
-    }
-    
-    private var filteredEmotions: [StateOfMindEmotion] {
-        let emotions: [StateOfMindEmotion]
-        
-        if let selectedCategory = selectedCategory {
-            emotions = emotionsByCategory[selectedCategory] ?? []
-        } else {
-            emotions = StateOfMindEmotion.allCases
-        }
-        
-        if searchText.isEmpty {
-            return emotions
-        } else {
-            return emotions.filter { emotion in
-                emotion.displayName.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-    }
     
     var body: some View {
         NavigationView {
@@ -2392,109 +2300,72 @@ struct StateOfMindLoggingView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Category Filter
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            // All button
-                            Button("All") {
-                                selectedCategory = nil
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                ZStack {
-                                    Capsule()
-                                        .fill(selectedCategory == nil ? .blue.opacity(0.2) : .gray.opacity(0.1))
-                                        .background(
-                                            Capsule()
-                                                .fill(.thinMaterial)
-                                        )
-                                    
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.3),
-                                                    Color.clear
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                }
-                            )
-                            .foregroundColor(selectedCategory == nil ? .blue : .primary)
-                            
-                            ForEach(StateOfMindCategory.allCases, id: \.self) { category in
-                                Button(category.displayName) {
-                                    selectedCategory = category
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    ZStack {
-                                        Capsule()
-                                            .fill(selectedCategory == category ? category.color.opacity(0.2) : .gray.opacity(0.1))
-                                            .background(
-                                                Capsule()
-                                                    .fill(.thinMaterial)
-                                            )
-                                        
-                                        Capsule()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.3),
-                                                        Color.clear
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                    }
-                                )
-                                .foregroundColor(selectedCategory == category ? category.color : .primary)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    
-                    // Search Bar
-                    SearchBar(text: $searchText)
-                        .padding(.horizontal)
-                    
-                    // Emotions Grid
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 12) {
-                        ForEach(filteredEmotions) { emotion in
-                            EmotionCard(
-                                emotion: emotion,
-                                isSelected: selectedEmotion == emotion,
-                                isSecondarySelected: selectedLabels.contains(emotion)
-                            ) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    if selectedEmotion == emotion {
-                                        selectedEmotion = nil
-                                    } else {
-                                        selectedEmotion = emotion
-                                        // Auto-set valence based on emotion category
-                                        switch emotion.category {
-                                        case .positive: valence = 0.7
-                                        case .balanced: valence = 0.2
-                                        case .negative: valence = -0.6
-                                        case .challenging: valence = -0.8
-                                        case .neutral: valence = 0.0
-                                        case .intense: valence = 0.5
+                    // Emotions List
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("How are you feeling?")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 8) {
+                            ForEach(StateOfMindEmotion.allCases) { emotion in
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        if selectedEmotion == emotion {
+                                            selectedEmotion = nil
+                                        } else {
+                                            selectedEmotion = emotion
+                                            // Auto-set valence based on emotion category
+                                            switch emotion.category {
+                                            case .positive: valence = 0.7
+                                            case .balanced: valence = 0.2
+                                            case .negative: valence = -0.6
+                                            case .challenging: valence = -0.8
+                                            case .neutral: valence = 0.0
+                                            case .intense: valence = 0.5
+                                            }
                                         }
                                     }
+                                }) {
+                                    HStack(spacing: 16) {
+                                        Text(emotion.emoji)
+                                            .font(.title2)
+                                        
+                                        Text(emotion.displayName)
+                                            .font(.body)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        if selectedEmotion == emotion {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.title3)
+                                        }
+                                    }
+                                    .padding()
+                                    .background(
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(selectedEmotion == emotion ? .blue.opacity(0.1) : .gray.opacity(0.05))
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(.thinMaterial)
+                                                )
+                                            
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(
+                                                    selectedEmotion == emotion ? .blue.opacity(0.3) : Color.clear,
+                                                    lineWidth: 1
+                                                )
+                                        }
+                                    )
                                 }
+                                .scaleEffect(selectedEmotion == emotion ? 1.02 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedEmotion)
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                     
                     // Valence Slider
                     if selectedEmotion != nil {
@@ -2742,48 +2613,4 @@ struct EmotionCard: View {
     }
 }
 
-struct SearchBar: View {
-    @Binding var text: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-            
-            TextField("Search emotions...", text: $text)
-                .textFieldStyle(PlainTextFieldStyle())
-            
-            if !text.isEmpty {
-                Button("Clear") {
-                    text = ""
-                }
-                .foregroundColor(.blue)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(.thinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(.gray.opacity(0.1))
-                    )
-                
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-        )
-    }
-}
 

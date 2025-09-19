@@ -363,42 +363,18 @@ class HealthKitManager: ObservableObject {
     
     @available(iOS 18.0, *)
     private func mapEmotionToHKLabel(_ emotion: StateOfMindEmotion) -> HKStateOfMind.Label? {
-        // Map to basic emotions that are definitely available in HealthKit
+        // Map simplified emotions to HealthKit labels
         switch emotion {
-        case .amazed: return .amazed
-        case .amused: return .amused  
-        case .angry: return .angry
-        case .annoyed: return .annoyed
-        case .anxious: return .anxious
-        case .ashamed: return .ashamed
-        case .brave: return .brave
-        case .calm: return .calm
-        case .confident: return .confident
-        case .content: return .content
-        case .determined: return .confident // Map to similar emotion
-        case .disappointed: return .disappointed
-        case .disgusted: return .disgusted
-        case .embarrassed: return .embarrassed
-        case .excited: return .excited
-        case .frustrated: return .frustrated
-        case .grateful: return .grateful
         case .happy: return .happy
-        case .hopeful: return .hopeful
-        case .indifferent: return .indifferent
-        case .irritated: return .irritated
-        case .jealous: return .jealous
-        case .joyful: return .joyful
-        case .lonely: return .lonely
-        case .passionate: return .passionate
-        case .peaceful: return .peaceful
-        case .pleased: return .happy // Map to similar emotion
-        case .proud: return .proud
-        case .relieved: return .relieved
+        case .calm: return .calm
+        case .excited: return .excited
+        case .grateful: return .grateful
+        case .content: return .content
+        case .anxious: return .anxious
         case .sad: return .sad
-        case .scared: return .scared
+        case .angry: return .angry
         case .stressed: return .stressed
-        case .surprised: return .surprised
-        case .worried: return .worried
+        case .frustrated: return .frustrated
         }
     }
     
