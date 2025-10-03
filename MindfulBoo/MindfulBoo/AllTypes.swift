@@ -30,13 +30,45 @@ enum SessionState: String, Codable, Hashable {
 
 // MARK: - Settings Types (from Settings.swift)
 
+enum AppearanceMode: String, CaseIterable, Codable {
+    case light = "light"
+    case dark = "dark"
+    case auto = "auto"
+
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .auto: return "Auto"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        case .auto: return "circle.lefthalf.filled"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .auto: return nil // Uses system setting
+        }
+    }
+}
+
 struct AppSettings: Codable {
     var sessionNotifications: SessionNotificationSettings
     var dailyReminders: DailyReminderSettings
-    
+    var appearanceMode: AppearanceMode = .auto
+
     static let `default` = AppSettings(
         sessionNotifications: SessionNotificationSettings(),
-        dailyReminders: DailyReminderSettings()
+        dailyReminders: DailyReminderSettings(),
+        appearanceMode: .auto
     )
 }
 
@@ -176,7 +208,14 @@ class SettingsManager: ObservableObject {
         settings.sessionNotifications.isEnabled.toggle()
         saveSettings()
     }
-    
+
+    // MARK: - Appearance Settings
+
+    func updateAppearanceMode(_ mode: AppearanceMode) {
+        settings.appearanceMode = mode
+        saveSettings()
+    }
+
     // MARK: - Daily Reminder Settings
     
     func toggleDailyReminders() {
@@ -291,7 +330,7 @@ class SettingsManager: ObservableObject {
 
 // MARK: - SessionManager
 
-class SessionManager: ObservableObject {
+class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var isSessionActive = false
     @Published var currentSession: Session?
     @Published var progress: Double = 0
@@ -304,6 +343,7 @@ class SessionManager: ObservableObject {
     private var startTime: Date?
     private var sessionEndTime: Date?
     private var audioPlayer: AVAudioPlayer?
+    private var backgroundAudioPlayer: AVAudioPlayer? // For silent audio to keep app alive
     private var cancellables = Set<AnyCancellable>()
     private var healthManager: HealthKitManager?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
@@ -317,7 +357,8 @@ class SessionManager: ObservableObject {
         return String(format: "%02d:%02d", minutes, seconds)
     }
     
-    init() {
+    override init() {
+        super.init()
         loadSessions()
         setupAudioSession()
     }
@@ -332,16 +373,62 @@ class SessionManager: ObservableObject {
     
     private func setupAudioSession() {
         do {
-            // Configure audio session for critical alarm functionality
+            // Configure audio session for background playback
+            // This allows the app to continue running in background as long as audio is playing
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .default,
-                options: [.mixWithOthers, .duckOthers, .interruptSpokenAudioAndMixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+                options: [.mixWithOthers, .duckOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
-            print("✅ Audio session configured for critical alarm functionality")
+            print("✅ Audio session configured for background playback")
         } catch {
             print("❌ Failed to setup audio session: \(error)")
+        }
+    }
+
+    // Generate silent audio buffer for background playback
+    private func generateSilentAudio(duration: TimeInterval) -> AVAudioPlayer? {
+        // Create a silent audio buffer
+        let sampleRate: Double = 44100.0
+        let numberOfSamples = Int(duration * sampleRate)
+
+        // Create audio format
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)
+        guard let audioFormat = format else {
+            print("❌ Failed to create audio format")
+            return nil
+        }
+
+        // Create PCM buffer with silence
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(numberOfSamples)) else {
+            print("❌ Failed to create audio buffer")
+            return nil
+        }
+
+        buffer.frameLength = AVAudioFrameCount(numberOfSamples)
+
+        // Fill with silence (zeros) - already done by default
+        // memset(buffer.floatChannelData?[0], 0, Int(buffer.frameLength) * MemoryLayout<Float>.size)
+
+        // Save to temporary file
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("silent_meditation_\(UUID().uuidString).caf")
+
+        do {
+            // Write buffer to file
+            let audioFile = try AVAudioFile(forWriting: tempURL, settings: audioFormat.settings)
+            try audioFile.write(from: buffer)
+
+            // Create audio player from file
+            let player = try AVAudioPlayer(contentsOf: tempURL)
+            player.numberOfLoops = 0 // Play once
+            player.volume = 0.0 // Silent
+
+            print("✅ Generated silent audio file: \(duration/60) minutes")
+            return player
+        } catch {
+            print("❌ Failed to generate silent audio: \(error)")
+            return nil
         }
     }
     
@@ -375,15 +462,28 @@ class SessionManager: ObservableObject {
         sessionEndTime = Date().addingTimeInterval(duration)
         isSessionActive = true
         progress = 0
-        
+
         print("📱 isSessionActive set to: \(isSessionActive)")
-        
+
         // Setup audio session for background playback
         setupAudioSession()
-        
-        // Start background task to keep timer running when app is backgrounded
-        startBackgroundTask()
-        
+
+        // Generate and play silent audio for the session duration
+        // This keeps the app alive in the background
+        print("🔊 Generating silent audio for \(duration/60) minutes...")
+        backgroundAudioPlayer = generateSilentAudio(duration: duration)
+
+        if let player = backgroundAudioPlayer {
+            player.delegate = self
+            player.prepareToPlay()
+            let success = player.play()
+            print(success ? "✅ Silent audio playback started" : "❌ Failed to start silent audio playback")
+        } else {
+            print("⚠️ Failed to generate silent audio, falling back to background task")
+            // Fallback to background task if audio generation fails
+            startBackgroundTask()
+        }
+
         // Create new session
         currentSession = Session(
             id: UUID(),
@@ -391,51 +491,56 @@ class SessionManager: ObservableObject {
             duration: duration,
             endDate: nil
         )
-        
+
         // Start Live Activity
         startLiveActivity()
-        
+
         // Request notification permissions and schedule completion notification
         requestNotificationPermissions()
-        
+
         // Setup critical audio session for alarm functionality
         setupCriticalAudioSession()
-        
+
         // Debug: Check current notification settings before scheduling
         checkNotificationSettingsBeforeScheduling {
             self.scheduleSessionCompletionNotification(duration: duration)
         }
-        
+
         // Start main session timer
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateTimer()
         }
-        
+
         print("Started meditation session for \(duration/60) minutes")
     }
     
     func stopSession() {
         guard isSessionActive else { return }
-        
+
         timer?.invalidate()
         timer = nil
         isSessionActive = false
-        
+
+        // Stop background audio playback
+        backgroundAudioPlayer?.stop()
+        backgroundAudioPlayer = nil
+        print("🔊 Stopped background audio playback")
+
         // End background task
         endBackgroundTask()
-        
+
         // End Live Activity
         endLiveActivity()
-        
+
         // Cancel scheduled notification since session is ending
         cancelSessionNotification()
-        
+
         // Complete current session
         completeAndSaveSession()
-        
+
         // Play completion sound
         playCompletionSound()
-        
+
         print("✅ Meditation session stopped - timers synchronized")
     }
     
@@ -1171,6 +1276,22 @@ class SessionManager: ObservableObject {
             }
         }
     }
+
+    // MARK: - AVAudioPlayerDelegate
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        print("🔊 Background audio finished playing, flag: \(flag)")
+
+        // When the silent audio finishes, the session should be complete
+        if player == backgroundAudioPlayer {
+            print("✅ Silent audio completed - triggering session completion")
+            completeSessionSafely()
+        }
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        print("❌ Audio player decode error: \(error?.localizedDescription ?? "unknown")")
+    }
 }
 
 import AudioToolbox
@@ -1316,65 +1437,84 @@ struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @Environment(\.presentationMode) var presentationMode
     @State private var selectedTab = 0
-    
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Custom tab picker with Liquid Glass
-                HStack(spacing: 4) {
+                // Enhanced minimal tab picker
+                HStack(spacing: 8) {
                     TabButton(
                         title: "Session",
                         isSelected: selectedTab == 0,
-                        action: { selectedTab = 0 }
+                        action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedTab = 0
+                            }
+                        }
                     )
-                    
+
                     TabButton(
-                        title: "Daily Reminders",
+                        title: "Reminders",
                         isSelected: selectedTab == 1,
-                        action: { selectedTab = 1 }
+                        action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedTab = 1
+                            }
+                        }
+                    )
+
+                    TabButton(
+                        title: "Appearance",
+                        isSelected: selectedTab == 2,
+                        action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedTab = 2
+                            }
+                        }
                     )
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(
-                    ZStack {
-                        // Liquid Glass tab bar background
-                        Capsule()
-                            .fill(.thinMaterial)
-                            .opacity(0.8)
-                            .frame(height: 44) // Fixed height for consistent alignment
-                        
-                        // Glass highlight
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.2),
-                                        Color.clear
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .frame(height: 44)
-                    }
-                    .padding(.horizontal)
-                )
-                
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 20)
+
                 // Tab content
                 TabView(selection: $selectedTab) {
                     SessionNotificationSettingsView()
                         .tag(0)
-                    
+
                     DailyReminderSettingsView()
                         .tag(1)
+
+                    AppearanceSettingsView()
+                        .tag(2)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
-                trailing: Button("Done") {
+                trailing: Button(action: {
                     presentationMode.wrappedValue.dismiss()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.3), .clear],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            )
+                            .frame(width: 32, height: 32)
+
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
                 }
             )
         }
@@ -1385,57 +1525,76 @@ struct TabButton: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
+                .fontWeight(isSelected ? .bold : .medium)
                 .foregroundColor(isSelected ? .white : .secondary)
-                .frame(height: 40) // Fixed height for proper alignment
-                .padding(.horizontal, 16)
+                .frame(height: 44)
+                .frame(maxWidth: .infinity)
                 .background(
-                    ZStack {
+                    Group {
                         if isSelected {
-                            // Selected state with Liquid Glass
-                            Capsule()
-                                .fill(.regularMaterial)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [.blue, .cyan],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
+                            ZStack {
+                                // Gradient background
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.2, green: 0.85, blue: 0.4),
+                                                Color(red: 0.1, green: 0.7, blue: 0.95)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
                                         )
-                                )
-                            
-                            // Glass highlight for selected tab
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.4),
-                                            Color.clear,
-                                            Color.white.opacity(0.2)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
                                     )
-                                )
-                                .blendMode(.overlay)
+
+                                // Glass overlay
+                                Capsule()
+                                    .fill(.thinMaterial)
+                                    .opacity(0.2)
+
+                                // Highlight
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.5),
+                                                Color.clear,
+                                                Color.white.opacity(0.2)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .blendMode(.overlay)
+
+                                // Border
+                                Capsule()
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.4), .cyan.opacity(0.3)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1.5
+                                    )
+                            }
+                            .shadow(color: .green.opacity(0.3), radius: 8, x: 0, y: 4)
                         } else {
-                            // Unselected state - subtle glass
+                            // Unselected - minimal
                             Capsule()
                                 .fill(.ultraThinMaterial)
-                                .opacity(0.3)
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                                )
                         }
                     }
                 )
         }
-        .frame(maxWidth: .infinity)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isSelected)
     }
 }
 
@@ -2074,6 +2233,177 @@ struct AddReminderView: View {
     }
 }
 
+// MARK: - Appearance Settings
+
+struct AppearanceSettingsView: View {
+    @EnvironmentObject var settingsManager: SettingsManager
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Appearance")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Choose how the app looks")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.top, 20)
+
+                // Appearance mode selector
+                VStack(spacing: 12) {
+                    ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                settingsManager.updateAppearanceMode(mode)
+                            }
+                        }) {
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            RadialGradient(
+                                                gradient: Gradient(colors: [
+                                                    modeColor(for: mode).opacity(0.3),
+                                                    .clear
+                                                ]),
+                                                center: .center,
+                                                startRadius: 0,
+                                                endRadius: 30
+                                            )
+                                        )
+                                        .frame(width: 60, height: 60)
+
+                                    Image(systemName: mode.icon)
+                                        .font(.title)
+                                        .foregroundStyle(
+                                            LinearGradient(
+                                                colors: modeGradient(for: mode),
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                }
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(mode.displayName)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+
+                                    Text(modeDescription(for: mode))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                if settingsManager.settings.appearanceMode == mode {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(
+                                            LinearGradient(
+                                                colors: [.green, .cyan],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                }
+                            }
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 20)
+                            .background(
+                                ZStack {
+                                    if settingsManager.settings.appearanceMode == mode {
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                modeColor(for: mode).opacity(0.15),
+                                                                .clear
+                                                            ],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
+                                                    )
+                                            )
+
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.4),
+                                                        Color.clear
+                                                    ],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                            )
+
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        modeColor(for: mode).opacity(0.5),
+                                                        modeColor(for: mode).opacity(0.2)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1.5
+                                            )
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                                            )
+                                    }
+                                }
+                            )
+                            .shadow(color: settingsManager.settings.appearanceMode == mode ? modeColor(for: mode).opacity(0.2) : .clear, radius: 10, x: 0, y: 5)
+                        }
+                        .scaleEffect(settingsManager.settings.appearanceMode == mode ? 1.01 : 1.0)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+            }
+        }
+    }
+
+    private func modeColor(for mode: AppearanceMode) -> Color {
+        switch mode {
+        case .light: return .orange
+        case .dark: return .indigo
+        case .auto: return .blue
+        }
+    }
+
+    private func modeGradient(for mode: AppearanceMode) -> [Color] {
+        switch mode {
+        case .light: return [.yellow, .orange]
+        case .dark: return [.indigo, .purple]
+        case .auto: return [.blue, .cyan]
+        }
+    }
+
+    private func modeDescription(for mode: AppearanceMode) -> String {
+        switch mode {
+        case .light: return "Always use light mode"
+        case .dark: return "Always use dark mode"
+        case .auto: return "Match system settings"
+        }
+    }
+}
+
 #Preview {
     SettingsView()
         .environmentObject(SettingsManager())
@@ -2218,98 +2548,163 @@ struct StateOfMindLoggingView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header with icon
+                    VStack(spacing: 16) {
+                        ZStack {
+                            // Glow effect
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        gradient: Gradient(colors: [
+                                            .pink.opacity(0.3),
+                                            .clear
+                                        ]),
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 40
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+
+                            Image(systemName: "heart.circle.fill")
+                                .font(.system(size: 56))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.pink, .red],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: .pink.opacity(0.4), radius: 10, x: 0, y: 5)
+                        }
+
                         Text("How are you feeling?")
-                            .font(.title2)
+                            .font(.title)
                             .fontWeight(.bold)
-                        
+
                         if #available(iOS 18.0, *) {
-                            Text("Log your current state of mind to track your emotional wellbeing in the Health app.")
+                            Text("Track your emotional wellbeing in the Health app")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         } else {
-                            Text("Log your current state of mind to track your emotional wellbeing. Health app sync coming with iOS 18.")
+                            Text("Track your emotional wellbeing")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         }
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 20)
                     .padding(.horizontal)
-                    
+
                     // Kind Selector (Daily Mood vs Momentary Emotion)
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("What are you logging?")
-                            .font(.headline)
-                        
+                        Text("TYPE")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                            .tracking(2)
+                            .padding(.horizontal)
+
                         HStack(spacing: 12) {
                             ForEach(StateOfMindKind.allCases, id: \.self) { kind in
                                 Button(action: {
-                                    selectedKind = kind
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        selectedKind = kind
+                                    }
                                 }) {
-                                    VStack(spacing: 8) {
+                                    VStack(spacing: 10) {
                                         Image(systemName: kind.icon)
                                             .font(.title2)
                                             .foregroundColor(selectedKind == kind ? .white : .primary)
-                                        
+
                                         Text(kind.displayName)
-                                            .font(.headline)
+                                            .font(.subheadline)
+                                            .fontWeight(selectedKind == kind ? .bold : .medium)
                                             .foregroundColor(selectedKind == kind ? .white : .primary)
-                                        
+
                                         Text(kind.description)
-                                            .font(.caption)
-                                            .foregroundColor(selectedKind == kind ? .white.opacity(0.8) : .secondary)
+                                            .font(.caption2)
+                                            .foregroundColor(selectedKind == kind ? .white.opacity(0.85) : .secondary)
                                             .multilineTextAlignment(.center)
                                             .lineLimit(2)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .frame(maxWidth: .infinity)
-                                    .padding()
+                                    .padding(.vertical, 16)
+                                    .padding(.horizontal, 12)
                                     .background(
                                         ZStack {
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .fill(selectedKind == kind ? .blue : .gray.opacity(0.1))
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 16)
-                                                        .fill(.thinMaterial)
-                                                )
-                                            
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(selectedKind == kind ? 0.4 : 0.2),
-                                                            Color.clear
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
+                                            if selectedKind == kind {
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [.pink, .red],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
                                                     )
-                                                )
-                                            
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .stroke(
-                                                    selectedKind == kind ? .blue : Color.white.opacity(0.1),
-                                                    lineWidth: selectedKind == kind ? 2 : 0.5
-                                                )
+
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .fill(.thinMaterial)
+                                                    .opacity(0.2)
+
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                Color.white.opacity(0.5),
+                                                                Color.clear,
+                                                                Color.white.opacity(0.2)
+                                                            ],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
+                                                    )
+                                                    .blendMode(.overlay)
+
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .strokeBorder(
+                                                        LinearGradient(
+                                                            colors: [.white.opacity(0.5), .pink.opacity(0.3)],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        ),
+                                                        lineWidth: 1.5
+                                                    )
+                                            } else {
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .fill(.ultraThinMaterial)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 20)
+                                                            .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                                                    )
+                                            }
                                         }
                                     )
+                                    .shadow(color: selectedKind == kind ? .pink.opacity(0.3) : .clear, radius: 10, x: 0, y: 5)
                                 }
                                 .scaleEffect(selectedKind == kind ? 1.02 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedKind)
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                     
                     // Emotions List
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("How are you feeling?")
-                            .font(.headline)
+                        Text("FEELING")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                            .tracking(2)
                             .padding(.horizontal)
-                        
-                        VStack(spacing: 8) {
+
+                        VStack(spacing: 10) {
                             ForEach(StateOfMindEmotion.allCases) { emotion in
                                 Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                         if selectedEmotion == emotion {
                                             selectedEmotion = nil
                                         } else {
@@ -2327,41 +2722,102 @@ struct StateOfMindLoggingView: View {
                                     }
                                 }) {
                                     HStack(spacing: 16) {
-                                        Text(emotion.emoji)
-                                            .font(.title2)
-                                        
+                                        ZStack {
+                                            Circle()
+                                                .fill(
+                                                    RadialGradient(
+                                                        gradient: Gradient(colors: [
+                                                            emotion.category.color.opacity(selectedEmotion == emotion ? 0.3 : 0.15),
+                                                            .clear
+                                                        ]),
+                                                        center: .center,
+                                                        startRadius: 0,
+                                                        endRadius: 25
+                                                    )
+                                                )
+                                                .frame(width: 50, height: 50)
+
+                                            Text(emotion.emoji)
+                                                .font(.title)
+                                        }
+
                                         Text(emotion.displayName)
                                             .font(.body)
+                                            .fontWeight(selectedEmotion == emotion ? .semibold : .regular)
                                             .foregroundColor(.primary)
-                                        
+
                                         Spacer()
-                                        
+
                                         if selectedEmotion == emotion {
                                             Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.blue)
+                                                .foregroundStyle(
+                                                    LinearGradient(
+                                                        colors: [.pink, .red],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
                                                 .font(.title3)
                                         }
                                     }
-                                    .padding()
+                                    .padding(.vertical, 14)
+                                    .padding(.horizontal, 16)
                                     .background(
                                         ZStack {
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .fill(selectedEmotion == emotion ? .blue.opacity(0.1) : .gray.opacity(0.05))
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .fill(.thinMaterial)
-                                                )
-                                            
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(
-                                                    selectedEmotion == emotion ? .blue.opacity(0.3) : Color.clear,
-                                                    lineWidth: 1
-                                                )
+                                            if selectedEmotion == emotion {
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .fill(.ultraThinMaterial)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16)
+                                                            .fill(
+                                                                LinearGradient(
+                                                                    colors: [
+                                                                        emotion.category.color.opacity(0.15),
+                                                                        .clear
+                                                                    ],
+                                                                    startPoint: .topLeading,
+                                                                    endPoint: .bottomTrailing
+                                                                )
+                                                            )
+                                                    )
+
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                Color.white.opacity(0.4),
+                                                                Color.clear
+                                                            ],
+                                                            startPoint: .top,
+                                                            endPoint: .bottom
+                                                        )
+                                                    )
+
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .strokeBorder(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                emotion.category.color.opacity(0.5),
+                                                                emotion.category.color.opacity(0.2)
+                                                            ],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        ),
+                                                        lineWidth: 1.5
+                                                    )
+                                            } else {
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .fill(.ultraThinMaterial)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16)
+                                                            .strokeBorder(Color.secondary.opacity(0.15), lineWidth: 1)
+                                                    )
+                                            }
                                         }
                                     )
+                                    .shadow(color: selectedEmotion == emotion ? emotion.category.color.opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
                                 }
-                                .scaleEffect(selectedEmotion == emotion ? 1.02 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedEmotion)
+                                .scaleEffect(selectedEmotion == emotion ? 1.01 : 1.0)
                             }
                         }
                         .padding(.horizontal)
@@ -2369,117 +2825,170 @@ struct StateOfMindLoggingView: View {
                     
                     // Valence Slider
                     if selectedEmotion != nil {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("How pleasant is this feeling?")
-                                .font(.headline)
-                            
-                            VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("INTENSITY")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                                .tracking(2)
+
+                            VStack(spacing: 12) {
                                 HStack {
                                     Text("Very Unpleasant")
-                                        .font(.caption)
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
                                         .foregroundColor(.secondary)
-                                    
+
                                     Spacer()
-                                    
+
                                     Text("Very Pleasant")
-                                        .font(.caption)
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 Slider(value: $valence, in: -1...1, step: 0.1)
                                     .accentColor(valence >= 0 ? .green : .red)
-                                
-                                Text("Current: \(valence >= 0 ? "+" : "")\(String(format: "%.1f", valence))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+
+                                HStack {
+                                    Spacer()
+                                    Text("\(valence >= 0 ? "+" : "")\(String(format: "%.1f", valence))")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(valence >= 0 ? .green : .red)
+                                    Spacer()
+                                }
                             }
-                        }
-                        .padding()
-                        .background(
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(.regularMaterial)
-                                    .opacity(0.9)
-                                
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.clear,
-                                                (valence >= 0 ? Color.green : Color.red).opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
+                            .padding(20)
+                            .background(
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(.ultraThinMaterial)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            (valence >= 0 ? Color.green : Color.red).opacity(0.1),
+                                                            .clear
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
                                         )
-                                    )
-                                
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(
-                                        Color.white.opacity(0.1),
-                                        lineWidth: 1
-                                    )
-                            }
-                        )
+
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.4),
+                                                    Color.clear
+                                                ],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        )
+
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .strokeBorder(
+                                            (valence >= 0 ? Color.green : Color.red).opacity(0.3),
+                                            lineWidth: 1.5
+                                        )
+                                }
+                            )
+                        }
                         .padding(.horizontal)
                     }
-                    
+
                     // Save Button
                     if selectedEmotion != nil {
                         Button(action: saveStateOfMind) {
-                            HStack {
-                                Image(systemName: "heart.fill")
-                                Text("Log State of Mind")
-                                    .fontWeight(.semibold)
+                            HStack(spacing: 12) {
+                                Image(systemName: "heart.circle.fill")
+                                    .font(.title3)
+                                Text("Save Mood")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
                             }
-                            .font(.title3)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
+                            .padding(.vertical, 18)
                             .background(
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 25)
+                                    Capsule()
                                         .fill(
                                             LinearGradient(
                                                 colors: [
-                                                    Color.pink,
-                                                    Color.purple,
-                                                    Color.blue
+                                                    .pink,
+                                                    .red
                                                 ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
+                                                startPoint: .leading,
+                                                endPoint: .trailing
                                             )
                                         )
-                                    
-                                    RoundedRectangle(cornerRadius: 25)
+
+                                    Capsule()
                                         .fill(.thinMaterial)
-                                        .opacity(0.3)
-                                    
-                                    RoundedRectangle(cornerRadius: 25)
+                                        .opacity(0.2)
+
+                                    Capsule()
                                         .fill(
                                             LinearGradient(
                                                 colors: [
-                                                    Color.white.opacity(0.6),
+                                                    Color.white.opacity(0.5),
                                                     Color.clear,
-                                                    Color.white.opacity(0.3)
+                                                    Color.white.opacity(0.2)
                                                 ],
                                                 startPoint: .topLeading,
                                                 endPoint: .bottomTrailing
                                             )
                                         )
                                         .blendMode(.overlay)
+
+                                    Capsule()
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [.white.opacity(0.5), .pink.opacity(0.3)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
                                 }
                             )
+                            .shadow(color: .pink.opacity(0.4), radius: 20, x: 0, y: 10)
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 20)
                     }
                 }
             }
-            .navigationTitle("State of Mind")
+            .navigationTitle("Mood Log")
+            .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
-                leading: Button("Cancel") {
+                trailing: Button(action: {
                     presentationMode.wrappedValue.dismiss()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.3), .clear],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            )
+                            .frame(width: 32, height: 32)
+
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
                 }
             )
         }

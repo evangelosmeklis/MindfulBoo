@@ -11,89 +11,108 @@ struct ContentView: View {
     @State private var showingStateOfMind = false
     @State private var currentWeather: WeatherCondition = .clear
     @State private var backgroundColors: [Color] = [.blue, .purple]
+    @State private var headerAnimation = false
+    @State private var buttonScale = false
 
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 30) {
-                // Header with consecutive days streak
-                VStack(spacing: 12) {
-                    // Time-based weather indicator
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text(currentWeather.emoji)
-                                .font(.caption)
-                            Text(getTimeOfDayDescription())
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+            VStack(spacing: 0) {
+                // Top section with streak and weather
+                HStack {
+                    // Enhanced Consecutive days streak
+                    HStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        gradient: Gradient(colors: [
+                                            .orange.opacity(0.3),
+                                            .clear
+                                        ]),
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 20
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                                .scaleEffect(headerAnimation ? 1.2 : 1.0)
+
+                            Text("⚡")
+                                .font(.title2)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(.systemBackground).opacity(0.7))
-                        )
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("\(healthStore.consecutiveDays)")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.orange, .red],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+
+                            Text(healthStore.consecutiveDays == 1 ? "DAY STREAK" : "DAY STREAK")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                                .tracking(1)
+                        }
                     }
-                    .padding(.horizontal)
-                    
-                    Image(systemName: "figure.mind.and.body")
-                        .font(.system(size: 60))
-                        .foregroundColor(.green)
-                    
-                    Text("MindfulBoo")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Meditation & Wellness")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    // Consecutive days streak with Liquid Glass - always show, even if 0
-                    HStack(spacing: 6) {
-                        Text("⚡")
-                            .font(.title2)
-                        Text("\(healthStore.consecutiveDays)")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.orange)
-                        Text(healthStore.consecutiveDays == 1 ? "day streak" : "day streak")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                     .background(
                         ZStack {
-                            // Base translucent glass
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(.thinMaterial)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(Color.orange.opacity(0.2))
+                            RoundedRectangle(cornerRadius: 24)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    .orange.opacity(0.15),
+                                                    .red.opacity(0.1),
+                                                    .clear
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
                                 )
-                            
-                            // Liquid Glass shine effect
-                            RoundedRectangle(cornerRadius: 20)
+
+                            RoundedRectangle(cornerRadius: 24)
                                 .fill(
                                     LinearGradient(
                                         colors: [
-                                            Color.white.opacity(0.3),
+                                            Color.white.opacity(0.5),
                                             Color.clear,
-                                            Color.orange.opacity(0.1)
+                                            Color.white.opacity(0.2)
                                         ],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
+
+                            RoundedRectangle(cornerRadius: 24)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            .orange.opacity(0.5),
+                                            .orange.opacity(0.2)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.5
+                                )
                         }
                     )
+                    .shadow(color: .orange.opacity(0.2), radius: 15, x: 0, y: 8)
                     .onTapGesture {
-                        // Debug tap - force recalculate
                         print("🐛 DEBUG TAP: Forcing streak recalculation...")
                         print("📊 Current sessions count: \(sessionManager.sessions.count)")
-                        
-                        // Show recent sessions for debugging
+
                         let recentSessions = sessionManager.sessions.suffix(5)
                         for session in recentSessions {
                             let formatter = DateFormatter()
@@ -101,129 +120,213 @@ struct ContentView: View {
                             formatter.timeStyle = .short
                             print("   - Session: \(formatter.string(from: session.startDate))")
                         }
-                        
+
                         let streakCount = sessionManager.calculateConsecutiveDays()
                         healthStore.updateConsecutiveDays(streakCount)
-                        
-                        // Also show debug permissions info
                         healthStore.debugPermissions()
                     }
+
+                    Spacer()
+
+                    // Weather indicator
+                    HStack(spacing: 6) {
+                        Text(currentWeather.emoji)
+                            .font(.body)
+                        Text(getTimeOfDayDescription())
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        ZStack {
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.4), .clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                        }
+                    )
+                    .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
                 }
+                .padding(.horizontal, 24)
                 .padding(.top, 20)
-                
+
                 Spacer()
-                
+
                 // Current session or timer setup
                 if sessionManager.isSessionActive {
                     ActiveSessionView()
                 } else {
-                    // Duration selector and settings
-                    VStack(spacing: 20) {
-                        Text("Session Duration")
-                            .font(.headline)
-                        
-                        Button(action: {
-                            isTimerPickerPresented = true
-                        }) {
-                            HStack {
-                                Image(systemName: "clock")
-                                Text(formatDurationDisplay())
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                            }
-                            .padding()
-                            .background(
-                                // Liquid Glass effect
-                                ZStack {
-                                    // Base translucent layer
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(.ultraThinMaterial)
-                                        .opacity(0.8)
-                                    
-                                    // Specular highlight overlay
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.3),
-                                                    Color.clear,
-                                                    Color.white.opacity(0.1)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                }
-                            )
-                        }
-                        .foregroundColor(.primary)
-                        
-                        // Start meditation button with Liquid Glass
+                    // Circular start button centered
+                    VStack(spacing: 40) {
+                        // Large circular start button
                         Button(action: startMeditation) {
-                            HStack {
+                            ZStack {
+                                // Outer pulsing glow
+                                Circle()
+                                    .fill(
+                                        RadialGradient(
+                                            gradient: Gradient(colors: [
+                                                .green.opacity(0.4),
+                                                .blue.opacity(0.3),
+                                                .clear
+                                            ]),
+                                            center: .center,
+                                            startRadius: 60,
+                                            endRadius: 110
+                                        )
+                                    )
+                                    .frame(width: 220, height: 220)
+                                    .scaleEffect(buttonScale ? 1.1 : 1.0)
+                                    .opacity(buttonScale ? 0.8 : 0.5)
+
+                                // Main circular button
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.2, green: 0.85, blue: 0.4),
+                                                Color(red: 0.1, green: 0.7, blue: 0.95),
+                                                Color(red: 0.3, green: 0.55, blue: 1.0)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 160, height: 160)
+                                    .overlay(
+                                        Circle()
+                                            .fill(.thinMaterial)
+                                            .opacity(0.2)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.6),
+                                                        Color.clear,
+                                                        Color.white.opacity(0.2)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                            .blendMode(.overlay)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .white.opacity(0.6),
+                                                        .cyan.opacity(0.4)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 3
+                                            )
+                                    )
+                                    .shadow(color: .green.opacity(0.5), radius: 30, x: 0, y: 15)
+                                    .shadow(color: .blue.opacity(0.4), radius: 15, x: 0, y: 8)
+
+                                // Play icon
                                 Image(systemName: "play.fill")
-                                Text("Start Meditation")
-                                    .fontWeight(.semibold)
+                                    .font(.system(size: 52, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                             }
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding(.vertical, 16)
-                            .padding(.horizontal, 32)
-                            .background(
-                                ZStack {
-                                    // Vibrant color base layer
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .fill(
+                        }
+                        .scaleEffect(buttonScale ? 1.05 : 1.0)
+
+                        // Duration selector below button
+                        VStack(spacing: 12) {
+                            Text("DURATION")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                                .tracking(2)
+
+                            Button(action: {
+                                isTimerPickerPresented = true
+                            }) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "clock.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(
                                             LinearGradient(
-                                                colors: [
-                                                    Color(red: 0.2, green: 0.8, blue: 0.4), // Vibrant green
-                                                    Color(red: 0.1, green: 0.6, blue: 0.9), // Vibrant blue
-                                                    Color(red: 0.3, green: 0.5, blue: 1.0)  // Electric blue
-                                                ],
+                                                colors: [.blue, .cyan],
                                                 startPoint: .topLeading,
                                                 endPoint: .bottomTrailing
                                             )
                                         )
-                                        .saturation(1.2) // Boost color saturation
-                                    
-                                    // Liquid glass overlay with tint
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .fill(.thinMaterial)
-                                        .opacity(0.3)
-                                    
-                                    // Enhanced specular highlights
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.6),
-                                                    Color.cyan.opacity(0.2),
-                                                    Color.clear,
-                                                    Color.white.opacity(0.3),
-                                                    Color.clear
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .blendMode(.overlay)
-                                    
-                                    // Liquid glass depth effect
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .stroke(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.4),
-                                                    Color.clear,
-                                                    Color.blue.opacity(0.3)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 1
-                                        )
+
+                                    Text(formatDurationDisplay())
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(.primary)
+
+                                    Image(systemName: "chevron.down.circle.fill")
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
                                 }
-                            )
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 14)
+                                .background(
+                                    ZStack {
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                Capsule()
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                .blue.opacity(0.08),
+                                                                .cyan.opacity(0.04),
+                                                                .clear
+                                                            ],
+                                                            startPoint: .topLeading,
+                                                            endPoint: .bottomTrailing
+                                                        )
+                                                    )
+                                            )
+
+                                        Capsule()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.4),
+                                                        Color.clear
+                                                    ],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                            )
+
+                                        Capsule()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .blue.opacity(0.3),
+                                                        .cyan.opacity(0.2)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1.5
+                                            )
+                                    }
+                                )
+                                .shadow(color: .blue.opacity(0.15), radius: 10, x: 0, y: 5)
+                            }
                         }
                         
                         // HealthKit status indicator
@@ -284,82 +387,150 @@ struct ContentView: View {
                 }
                 
                 Spacer()
-                
-                // Bottom actions with Liquid Glass effects
-                HStack(spacing: 40) {
+
+                // Bottom actions with enhanced minimal design
+                HStack(spacing: 24) {
                     Spacer()
-                    
-                    // State of Mind Button
+
+                    // Mood Log Button
                     Button(action: { showingStateOfMind = true }) {
-                        VStack {
-                            Image(systemName: "heart.fill")
-                                .font(.title2)
-                            Text("Mood Log")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
+                        VStack(spacing: 8) {
                             ZStack {
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .opacity(0.7)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.pink.opacity(0.1))
-                                    )
-                                
-                                Capsule()
+                                Circle()
                                     .fill(
+                                        RadialGradient(
+                                            gradient: Gradient(colors: [
+                                                .pink.opacity(0.2),
+                                                .clear
+                                            ]),
+                                            center: .center,
+                                            startRadius: 0,
+                                            endRadius: 30
+                                        )
+                                    )
+                                    .frame(width: 60, height: 60)
+
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .pink.opacity(0.1),
+                                                        .clear
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .pink.opacity(0.4),
+                                                        .pink.opacity(0.2)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1.5
+                                            )
+                                    )
+                                    .frame(width: 56, height: 56)
+
+                                Image(systemName: "heart.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(
                                         LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.clear,
-                                                Color.pink.opacity(0.1)
-                                            ],
+                                            colors: [.pink, .red],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
                                     )
                             }
-                        )
-                    }
-                    .foregroundColor(.pink)
-                    
-                    Button(action: { showingSettings = true }) {
-                        VStack {
-                            Image(systemName: "gear")
-                                .font(.title2)
-                            Text("Settings")
+
+                            Text("Mood")
                                 .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
+                    }
+                    .shadow(color: .pink.opacity(0.15), radius: 8, x: 0, y: 4)
+
+                    // Settings Button
+                    Button(action: { showingSettings = true }) {
+                        VStack(spacing: 8) {
                             ZStack {
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .opacity(0.7)
-                                
-                                Capsule()
+                                Circle()
                                     .fill(
+                                        RadialGradient(
+                                            gradient: Gradient(colors: [
+                                                .gray.opacity(0.15),
+                                                .clear
+                                            ]),
+                                            center: .center,
+                                            startRadius: 0,
+                                            endRadius: 30
+                                        )
+                                    )
+                                    .frame(width: 60, height: 60)
+
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .white.opacity(0.3),
+                                                        .clear
+                                                    ],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                            )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .gray.opacity(0.3),
+                                                        .gray.opacity(0.15)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1.5
+                                            )
+                                    )
+                                    .frame(width: 56, height: 56)
+
+                                Image(systemName: "gearshape.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(
                                         LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.2),
-                                                Color.clear
-                                            ],
-                                            startPoint: .top,
-                                            endPoint: .bottom
+                                            colors: [.gray, .secondary],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
                                         )
                                     )
                             }
-                        )
+
+                            Text("Settings")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    .foregroundColor(.primary)
-                    
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+
                     Spacer()
                 }
-                .padding(.bottom, 30)
+                .padding(.bottom, 40)
             }
             .padding(.horizontal)
             .navigationBarHidden(true)
@@ -443,10 +614,19 @@ struct ContentView: View {
             let streakCount = sessionManager.calculateConsecutiveDays()
             healthStore.updateConsecutiveDays(streakCount)
             print("🐛 Debug: onAppear called, isAuthorized: \(healthStore.isAuthorized), consecutiveDays: \(healthStore.consecutiveDays)")
-            
+
             // Refresh background every 5 minutes to catch time changes
             Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
                 updateBackgroundForTimeOfDay()
+            }
+
+            // Start animations
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                headerAnimation = true
+            }
+
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                buttonScale = true
             }
         }
         .onChange(of: healthStore.isAuthorized) { isAuthorized in
@@ -701,95 +881,277 @@ enum WeatherCondition: String, CaseIterable {
 struct ActiveSessionView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var healthStore: HealthKitManager
-    
+    @State private var pulseAnimation = false
+    @State private var breatheAnimation = false
+    @State private var rotationDegrees = 0.0
+
     var body: some View {
-        VStack(spacing: 30) {
-            // Progress circle
+        VStack(spacing: 40) {
+            // Enhanced progress circle with animations
             ZStack {
+                // Outer glow ring
                 Circle()
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 8)
-                    .frame(width: 200, height: 200)
-                
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.green.opacity(0.3), .blue.opacity(0.3)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 20
+                    )
+                    .frame(width: 240, height: 240)
+                    .blur(radius: 10)
+                    .scaleEffect(pulseAnimation ? 1.05 : 1.0)
+                    .opacity(pulseAnimation ? 0.6 : 0.3)
+
+                // Background track
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.gray.opacity(0.1), Color.gray.opacity(0.2)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 12
+                    )
+                    .frame(width: 220, height: 220)
+
+                // Progress arc with gradient
                 Circle()
                     .trim(from: 0, to: sessionManager.progress)
                     .stroke(
-                        LinearGradient(
-                            gradient: Gradient(colors: [.green, .blue]),
-                            startPoint: .topTrailing,
-                            endPoint: .bottomLeading
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                .green,
+                                .cyan,
+                                .blue,
+                                .purple,
+                                sessionManager.progress > 0.8 ? .pink : .purple
+                            ]),
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(360)
                         ),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
-                    .frame(width: 200, height: 200)
+                    .frame(width: 220, height: 220)
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 1), value: sessionManager.progress)
-                
-                VStack {
+                    .animation(.spring(response: 0.8, dampingFraction: 0.8), value: sessionManager.progress)
+                    .shadow(color: .blue.opacity(0.5), radius: 8, x: 0, y: 0)
+
+                // Inner breathing circle
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                .green.opacity(0.15),
+                                .blue.opacity(0.1),
+                                .clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 90
+                        )
+                    )
+                    .frame(width: 180, height: 180)
+                    .scaleEffect(breatheAnimation ? 1.1 : 0.95)
+                    .opacity(breatheAnimation ? 0.8 : 0.4)
+
+                // Time display with enhanced styling
+                VStack(spacing: 4) {
                     Text(sessionManager.formattedTimeRemaining)
-                        .font(.title)
-                        .fontWeight(.bold)
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                    
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.green, .cyan, .blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: .blue.opacity(0.3), radius: 2, x: 0, y: 2)
+
                     Text("remaining")
                         .font(.caption)
+                        .fontWeight(.medium)
                         .foregroundColor(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(2)
                 }
+
+                // Spinning meditation icon overlay
+                Image(systemName: "sparkles")
+                    .font(.system(size: 20))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.yellow, .orange],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .offset(y: -130)
+                    .rotationEffect(.degrees(rotationDegrees))
+                    .opacity(0.6)
             }
-            
-            // Meditation message with Liquid Glass design
-            VStack(spacing: 8) {
-                Image(systemName: "figure.mind.and.body")
-                    .foregroundColor(.green)
-                    .font(.title2)
-                
+
+            // Enhanced meditation message
+            VStack(spacing: 12) {
+                ZStack {
+                    // Animated background orb
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(colors: [
+                                    .green.opacity(0.2),
+                                    .clear
+                                ]),
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 40
+                            )
+                        )
+                        .frame(width: 60, height: 60)
+                        .scaleEffect(pulseAnimation ? 1.2 : 1.0)
+
+                    Image(systemName: "figure.mind.and.body")
+                        .font(.system(size: 32))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.green, .cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: .green.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
+
                 Text("Focus on your breath")
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.semibold)
                     .foregroundColor(.primary)
-                
+
                 Text("Let your thoughts flow naturally")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
-            .padding()
+            .padding(.vertical, 24)
+            .padding(.horizontal, 32)
             .background(
                 ZStack {
-                    // Base glass layer
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.regularMaterial)
-                        .opacity(0.9)
-                    
-                    // Glass reflection effect
-                    RoundedRectangle(cornerRadius: 16)
+                    // Animated glass background
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            .green.opacity(0.1),
+                                            .blue.opacity(0.05),
+                                            .clear
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+
+                    // Shimmering highlight
+                    RoundedRectangle(cornerRadius: 24)
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.white.opacity(0.2),
+                                    Color.white.opacity(0.3),
                                     Color.clear,
                                     Color.white.opacity(0.1)
                                 ],
-                                startPoint: UnitPoint(x: 0.1, y: 0.1),
-                                endPoint: UnitPoint(x: 0.9, y: 0.9)
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
+                        )
+
+                    // Subtle border
+                    RoundedRectangle(cornerRadius: 24)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.3),
+                                    .white.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
                         )
                 }
             )
-            
-            // Stop button
+            .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+
+            // Enhanced stop button
             Button(action: {
                 sessionManager.stopSession()
             }) {
-                HStack {
-                    Image(systemName: "stop.fill")
+                HStack(spacing: 12) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.title3)
                     Text("End Session")
                         .fontWeight(.semibold)
                 }
                 .font(.title3)
                 .foregroundColor(.white)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 24)
-                .background(Color.red)
-                .cornerRadius(20)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 32)
+                .background(
+                    ZStack {
+                        // Gradient background
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.red, .pink],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+
+                        // Glass overlay
+                        Capsule()
+                            .fill(.thinMaterial)
+                            .opacity(0.2)
+
+                        // Highlight
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .white.opacity(0.4),
+                                        .clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                )
+                .shadow(color: .red.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+            .scaleEffect(pulseAnimation ? 1.02 : 1.0)
+        }
+        .onAppear {
+            // Continuous breathing animation
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                breatheAnimation = true
+            }
+
+            // Pulse animation
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                pulseAnimation = true
+            }
+
+            // Rotation animation for sparkles
+            withAnimation(.linear(duration: 8.0).repeatForever(autoreverses: false)) {
+                rotationDegrees = 360
             }
         }
     }
@@ -799,95 +1161,353 @@ struct DurationPickerView: View {
     @Binding var selectedHours: Int
     @Binding var selectedMinutes: Int
     @Environment(\.presentationMode) var presentationMode
-    
+    @State private var glowAnimation = false
+
+    private var totalMinutes: Int {
+        selectedHours * 60 + selectedMinutes
+    }
+
+    private var formattedDuration: String {
+        if selectedHours == 0 {
+            return "\(selectedMinutes) min"
+        } else if selectedMinutes == 0 {
+            return "\(selectedHours)h"
+        } else {
+            return "\(selectedHours)h \(selectedMinutes)m"
+        }
+    }
+
     var body: some View {
         NavigationView {
-            VStack {
-                Text("Select Duration")
-                    .font(.headline)
-                    .padding()
-                
-                Text("Maximum: 24 hours")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.bottom)
-                
-                // Two wheel pickers side by side
-                HStack(spacing: 20) {
-                    // Hours picker
-                    VStack {
-                        Text("Hours")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        Picker("Hours", selection: $selectedHours) {
-                            ForEach(0...24, id: \.self) { hour in
-                                Text("\(hour)")
-                                    .tag(hour)
-                            }
+            ZStack {
+                // Gradient background
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 0.1, green: 0.15, blue: 0.3),
+                        Color(red: 0.15, green: 0.25, blue: 0.4)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                VStack(spacing: 32) {
+                    // Header with icon
+                    VStack(spacing: 16) {
+                        ZStack {
+                            // Pulsing glow
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        gradient: Gradient(colors: [
+                                            .blue.opacity(0.4),
+                                            .clear
+                                        ]),
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 50
+                                    )
+                                )
+                                .frame(width: 100, height: 100)
+                                .scaleEffect(glowAnimation ? 1.2 : 1.0)
+                                .opacity(glowAnimation ? 0.6 : 0.3)
+
+                            // Icon
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.cyan, .blue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: .blue.opacity(0.5), radius: 10, x: 0, y: 5)
                         }
-                        .pickerStyle(WheelPickerStyle())
-                        .frame(width: 80, height: 150)
+
+                        Text("Session Duration")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+
+                        Text("Maximum: 24 hours")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.6))
+                            .textCase(.uppercase)
+                            .tracking(1.5)
                     }
-                    
-                    // Minutes picker
-                    VStack {
-                        Text("Minutes")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        Picker("Minutes", selection: $selectedMinutes) {
-                            ForEach(0...59, id: \.self) { minute in
-                                Text("\(minute)")
-                                    .tag(minute)
-                            }
+                    .padding(.top, 40)
+
+                    // Current selection display
+                    VStack(spacing: 8) {
+                        Text(formattedDuration)
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, .cyan.opacity(0.8)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .shadow(color: .cyan.opacity(0.3), radius: 8, x: 0, y: 4)
+
+                        if totalMinutes > 0 {
+                            Text("\(totalMinutes) total minutes")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.5))
                         }
-                        .pickerStyle(WheelPickerStyle())
-                        .frame(width: 80, height: 150)
-                        .disabled(selectedHours == 24) // Disable minutes when at 24 hours
                     }
+                    .padding(.vertical, 20)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 24)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    .white.opacity(0.1),
+                                                    .clear
+                                                ],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        )
+                                )
+
+                            RoundedRectangle(cornerRadius: 24)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.5
+                                )
+                        }
+                    )
+                    .padding(.horizontal, 32)
+
+                    // Pickers container
+                    HStack(spacing: 24) {
+                        // Hours picker
+                        VStack(spacing: 12) {
+                            Text("HOURS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white.opacity(0.6))
+                                .tracking(2)
+
+                            Picker("Hours", selection: $selectedHours) {
+                                ForEach(0...24, id: \.self) { hour in
+                                    Text("\(hour)")
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                        .tag(hour)
+                                }
+                            }
+                            .pickerStyle(WheelPickerStyle())
+                            .frame(width: 100, height: 180)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                        }
+
+                        // Colon separator
+                        Text(":")
+                            .font(.system(size: 48, weight: .bold))
+                            .foregroundColor(.white.opacity(0.3))
+                            .offset(y: 20)
+
+                        // Minutes picker
+                        VStack(spacing: 12) {
+                            Text("MINUTES")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white.opacity(0.6))
+                                .tracking(2)
+
+                            Picker("Minutes", selection: $selectedMinutes) {
+                                ForEach(0...59, id: \.self) { minute in
+                                    Text("\(minute)")
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                        .tag(minute)
+                                }
+                            }
+                            .pickerStyle(WheelPickerStyle())
+                            .frame(width: 100, height: 180)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                            .disabled(selectedHours == 24)
+                            .opacity(selectedHours == 24 ? 0.5 : 1.0)
+                        }
+                    }
+                    .padding(.horizontal, 32)
+
+                    // Warning messages
+                    Group {
+                        if selectedHours == 24 && selectedMinutes > 0 {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text("Minutes automatically set to 0 at 24 hours")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule()
+                                            .fill(.orange.opacity(0.2))
+                                    )
+                            )
+                        } else if selectedHours == 0 && selectedMinutes == 0 {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text("Please select at least 1 minute")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule()
+                                            .fill(.red.opacity(0.2))
+                                    )
+                            )
+                        }
+                    }
+
+                    Spacer()
+
+                    // Done button
+                    Button(action: {
+                        if selectedHours == 0 && selectedMinutes == 0 {
+                            selectedMinutes = 1
+                        }
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title3)
+                            Text("Set Duration")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            ZStack {
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.2, green: 0.85, blue: 0.4),
+                                                Color(red: 0.1, green: 0.7, blue: 0.95)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+
+                                Capsule()
+                                    .fill(.thinMaterial)
+                                    .opacity(0.2)
+
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                .white.opacity(0.5),
+                                                .clear,
+                                                .white.opacity(0.2)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .blendMode(.overlay)
+
+                                Capsule()
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.5), .cyan.opacity(0.3)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 2
+                                    )
+                            }
+                        )
+                        .shadow(color: .green.opacity(0.4), radius: 20, x: 0, y: 10)
+                    }
+                    .disabled(selectedHours == 0 && selectedMinutes == 0)
+                    .opacity((selectedHours == 0 && selectedMinutes == 0) ? 0.5 : 1.0)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
                 }
-                .padding()
-                
-                if selectedHours == 24 && selectedMinutes > 0 {
-                    Text("Minutes automatically set to 0 at 24 hours")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.top, 8)
-                } else if selectedHours == 0 && selectedMinutes == 0 {
-                    Text("Please select at least 1 minute")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding(.top, 8)
-                }
-                
-                Spacer()
             }
-            .navigationTitle("Duration")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
-                leading: Button("Cancel") {
+                trailing: Button(action: {
                     presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Done") {
-                    // Ensure minimum 1 minute duration
-                    if selectedHours == 0 && selectedMinutes == 0 {
-                        selectedMinutes = 1
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.white.opacity(0.3), .clear],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                            )
+                            .frame(width: 32, height: 32)
+
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
                     }
-                    presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(selectedHours == 0 && selectedMinutes == 0)
             )
             .onChange(of: selectedHours) { hours in
-                // If hours is set to 24, reset minutes to 0
                 if hours == 24 {
                     selectedMinutes = 0
                 }
             }
             .onChange(of: selectedMinutes) { minutes in
-                // Ensure we don't exceed 24 hours total
                 if selectedHours == 24 && minutes > 0 {
                     selectedMinutes = 0
+                }
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                    glowAnimation = true
                 }
             }
         }

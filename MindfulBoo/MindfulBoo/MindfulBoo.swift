@@ -33,62 +33,62 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-@main
-struct MindfulBooApp: App {
-    @StateObject private var healthStore = HealthKitManager()
-    @StateObject private var sessionManager = SessionManager()
-    @StateObject private var settingsManager = SettingsManager()
-    private let notificationDelegate = NotificationDelegate()
-    
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(healthStore)
-                .environmentObject(sessionManager)
-                .environmentObject(settingsManager)
-                .onAppear {
-                    // Setup notification delegate
-                    UNUserNotificationCenter.current().delegate = notificationDelegate
-                    
-                    // Connect the managers so they can work together
-                    healthStore.requestPermissions()
-                    sessionManager.setHealthManager(healthStore)
-                    sessionManager.setSettingsManager(settingsManager)
-                    
-                    // Calculate initial streak from existing sessions
-                    let streakCount = sessionManager.calculateConsecutiveDays()
-                    healthStore.updateConsecutiveDays(streakCount)
-                    
-                    // Debug notification settings
-                    checkNotificationSettings()
-                    
-                    // Give a moment for permissions to be processed, then log status
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        print("\n🚀 Meditation App Started")
-                        print("📋 Checking HealthKit permissions...")
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    // Refresh permissions when app becomes active (e.g., returning from Settings)
-                    print("📱 App became active - refreshing HealthKit permissions...")
-                    healthStore.forceRefreshPermissions()
-                    
-                    // Sync session timers when app becomes active (fixes background timer issues)
-                    sessionManager.forceSyncTimers()
-                    
-                    // Clear notification badge when app becomes active
-                    UNUserNotificationCenter.current().setBadgeCount(0)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-                    // Handle app going to background during active session
-                    print("📱 App entered background")
-                    if sessionManager.isSessionActive {
-                        print("🔄 Active session detected - ensuring background task is running")
-                    }
-                }
-        }
+// Wrapper view to make color scheme reactive
+struct RootView: View {
+    @EnvironmentObject var healthStore: HealthKitManager
+    @EnvironmentObject var sessionManager: SessionManager
+    @EnvironmentObject var settingsManager: SettingsManager
+    private let notificationDelegate: NotificationDelegate
+
+    init(notificationDelegate: NotificationDelegate) {
+        self.notificationDelegate = notificationDelegate
     }
-    
+
+    var body: some View {
+        ContentView()
+            .preferredColorScheme(settingsManager.settings.appearanceMode.colorScheme)
+            .onAppear {
+                // Setup notification delegate
+                UNUserNotificationCenter.current().delegate = notificationDelegate
+
+                // Connect the managers so they can work together
+                healthStore.requestPermissions()
+                sessionManager.setHealthManager(healthStore)
+                sessionManager.setSettingsManager(settingsManager)
+
+                // Calculate initial streak from existing sessions
+                let streakCount = sessionManager.calculateConsecutiveDays()
+                healthStore.updateConsecutiveDays(streakCount)
+
+                // Debug notification settings
+                checkNotificationSettings()
+
+                // Give a moment for permissions to be processed, then log status
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    print("\n🚀 Meditation App Started")
+                    print("📋 Checking HealthKit permissions...")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                // Refresh permissions when app becomes active (e.g., returning from Settings)
+                print("📱 App became active - refreshing HealthKit permissions...")
+                healthStore.forceRefreshPermissions()
+
+                // Sync session timers when app becomes active (fixes background timer issues)
+                sessionManager.forceSyncTimers()
+
+                // Clear notification badge when app becomes active
+                UNUserNotificationCenter.current().setBadgeCount(0)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                // Handle app going to background during active session
+                print("📱 App entered background")
+                if sessionManager.isSessionActive {
+                    print("🔄 Active session detected - ensuring background task is running")
+                }
+            }
+    }
+
     private func checkNotificationSettings() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
@@ -97,14 +97,14 @@ struct MindfulBooApp: App {
                 print("   Alert Setting: \(settings.alertSetting.rawValue)")
                 print("   Sound Setting: \(settings.soundSetting.rawValue)")
                 print("   Badge Setting: \(settings.badgeSetting.rawValue)")
-                
+
                 if #available(iOS 15.0, *) {
                     print("   Time Sensitive Setting: \(settings.timeSensitiveSetting.rawValue)")
                 }
-                
+
                 print("   Lock Screen Setting: \(settings.lockScreenSetting.rawValue)")
                 print("   Notification Center Setting: \(settings.notificationCenterSetting.rawValue)")
-                
+
                 // Check if notifications are properly configured for alarm functionality
                 if settings.authorizationStatus != .authorized {
                     print("⚠️ CRITICAL: Notifications not authorized - alarm will NOT work!")
@@ -116,6 +116,23 @@ struct MindfulBooApp: App {
                     print("⚠️ WARNING: Lock screen notifications disabled - may not show when locked!")
                 }
             }
+        }
+    }
+}
+
+@main
+struct MindfulBooApp: App {
+    @StateObject private var healthStore = HealthKitManager()
+    @StateObject private var sessionManager = SessionManager()
+    @StateObject private var settingsManager = SettingsManager()
+    private let notificationDelegate = NotificationDelegate()
+
+    var body: some Scene {
+        WindowGroup {
+            RootView(notificationDelegate: notificationDelegate)
+                .environmentObject(healthStore)
+                .environmentObject(sessionManager)
+                .environmentObject(settingsManager)
         }
     }
 } 
