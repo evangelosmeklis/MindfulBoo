@@ -290,27 +290,42 @@ class SettingsManager: ObservableObject {
     }
     
     private func scheduleDailyReminder(_ reminder: DailyReminderSettings.DailyReminder) {
-        let content = UNMutableNotificationContent()
-        content.title = "MindfulBoo Reminder"
-        content.body = reminder.message
-        content.sound = UNNotificationSound.default
-        content.badge = 1
-        
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: reminder.time)
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        let request = UNNotificationRequest(
-            identifier: "daily_reminder_\(reminder.id.uuidString)",
-            content: content,
-            trigger: trigger
-        )
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Failed to schedule daily reminder: \(error)")
-            } else {
-                print("Scheduled daily reminder for \(reminder.formattedTime)")
+        // First check if we have notification permissions
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                print("⚠️ Cannot schedule daily reminder - notifications not authorized")
+                // Request permissions for future use
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .provisional]) { granted, error in
+                    if granted {
+                        // Retry scheduling after permission is granted
+                        self.scheduleDailyReminder(reminder)
+                    }
+                }
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "MindfulBoo Reminder"
+            content.body = reminder.message
+            content.sound = UNNotificationSound.default
+            content.badge = 1
+
+            let calendar = Calendar.current
+            let components = calendar.dateComponents([.hour, .minute], from: reminder.time)
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: "daily_reminder_\(reminder.id.uuidString)",
+                content: content,
+                trigger: trigger
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Failed to schedule daily reminder: \(error)")
+                } else {
+                    print("Scheduled daily reminder for \(reminder.formattedTime)")
+                }
             }
         }
     }
@@ -373,15 +388,17 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     private func setupAudioSession() {
         do {
-            // Configure audio session for background playback
-            // This allows the app to continue running in background as long as audio is playing
+            // Configure audio session for background playback with alarm capability
+            // .playback category allows continuous background execution
+            // .duckOthers ensures our alarm can interrupt other audio
+            // .interruptSpokenAudioAndMixWithOthers allows alarm to play even if other audio is active
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .default,
-                options: [.mixWithOthers, .duckOthers]
+                options: [.mixWithOthers, .duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
-            print("✅ Audio session configured for background playback")
+            print("✅ Audio session configured for background playback with alarm capability")
         } catch {
             print("❌ Failed to setup audio session: \(error)")
         }
@@ -496,14 +513,18 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         startLiveActivity()
 
         // Request notification permissions and schedule completion notification
-        requestNotificationPermissions()
-
-        // Setup critical audio session for alarm functionality
-        setupCriticalAudioSession()
-
-        // Debug: Check current notification settings before scheduling
-        checkNotificationSettingsBeforeScheduling {
-            self.scheduleSessionCompletionNotification(duration: duration)
+        requestNotificationPermissions { granted in
+            // Debug: Check current notification settings before scheduling
+            self.checkNotificationSettingsBeforeScheduling {
+                // Only schedule if we have authorization or provisional authorization
+                UNUserNotificationCenter.current().getNotificationSettings { settings in
+                    if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+                        self.scheduleSessionCompletionNotification(duration: duration)
+                    } else {
+                        print("⚠️ Cannot schedule notification - authorization status: \(settings.authorizationStatus.rawValue)")
+                    }
+                }
+            }
         }
 
         // Start main session timer
@@ -992,18 +1013,24 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     // MARK: - Notification Support
     
-    private func requestNotificationPermissions() {
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-        
+    private func requestNotificationPermissions(completion: @escaping (Bool) -> Void = { _ in }) {
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+
         UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
             if let error = error {
                 print("❌ Notification permission error: \(error)")
+                DispatchQueue.main.async {
+                    completion(false)
+                }
             } else {
                 print("✅ Notification permission granted: \(granted)")
                 if granted {
                     print("✅ Standard notifications enabled for locked device alarm functionality")
                 } else {
                     print("⚠️ Notifications denied - alarm may not work when device is locked")
+                }
+                DispatchQueue.main.async {
+                    completion(granted)
                 }
             }
         }
