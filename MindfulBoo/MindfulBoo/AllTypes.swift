@@ -345,7 +345,7 @@ class SettingsManager: ObservableObject {
 
 // MARK: - SessionManager
 
-class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
+class SessionManager: NSObject, ObservableObject {
     @Published var isSessionActive = false
     @Published var currentSession: Session?
     @Published var progress: Double = 0
@@ -358,10 +358,8 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var startTime: Date?
     private var sessionEndTime: Date?
     private var audioPlayer: AVAudioPlayer?
-    private var backgroundAudioPlayer: AVAudioPlayer? // For silent audio to keep app alive
     private var cancellables = Set<AnyCancellable>()
     private var healthManager: HealthKitManager?
-    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var notificationIdentifier = "meditation_session_complete"
     private var settingsManager: SettingsManager?
     private var currentActivity: Activity<MindfulBooActivityAttributes>?
@@ -388,8 +386,7 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     private func setupAudioSession() {
         do {
-            // Configure audio session for background playback with alarm capability
-            // .playback category allows continuous background execution
+            // Configure audio session for alarm playback only
             // .duckOthers ensures our alarm can interrupt other audio
             // .interruptSpokenAudioAndMixWithOthers allows alarm to play even if other audio is active
             try AVAudioSession.sharedInstance().setCategory(
@@ -398,69 +395,9 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 options: [.mixWithOthers, .duckOthers, .interruptSpokenAudioAndMixWithOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
-            print("✅ Audio session configured for background playback with alarm capability")
+            print("✅ Audio session configured for alarm playback")
         } catch {
             print("❌ Failed to setup audio session: \(error)")
-        }
-    }
-
-    // Generate silent audio buffer for background playback
-    private func generateSilentAudio(duration: TimeInterval) -> AVAudioPlayer? {
-        // Create a silent audio buffer
-        let sampleRate: Double = 44100.0
-        let numberOfSamples = Int(duration * sampleRate)
-
-        // Create audio format
-        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)
-        guard let audioFormat = format else {
-            print("❌ Failed to create audio format")
-            return nil
-        }
-
-        // Create PCM buffer with silence
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(numberOfSamples)) else {
-            print("❌ Failed to create audio buffer")
-            return nil
-        }
-
-        buffer.frameLength = AVAudioFrameCount(numberOfSamples)
-
-        // Fill with silence (zeros) - already done by default
-        // memset(buffer.floatChannelData?[0], 0, Int(buffer.frameLength) * MemoryLayout<Float>.size)
-
-        // Save to temporary file
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("silent_meditation_\(UUID().uuidString).caf")
-
-        do {
-            // Write buffer to file
-            let audioFile = try AVAudioFile(forWriting: tempURL, settings: audioFormat.settings)
-            try audioFile.write(from: buffer)
-
-            // Create audio player from file
-            let player = try AVAudioPlayer(contentsOf: tempURL)
-            player.numberOfLoops = 0 // Play once
-            player.volume = 0.0 // Silent
-
-            print("✅ Generated silent audio file: \(duration/60) minutes")
-            return player
-        } catch {
-            print("❌ Failed to generate silent audio: \(error)")
-            return nil
-        }
-    }
-    
-    private func setupCriticalAudioSession() {
-        do {
-            // More aggressive audio session for alarm notifications
-            try AVAudioSession.sharedInstance().setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP, .overrideMutedMicrophoneInterruption]
-            )
-            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
-            print("🚨 Critical audio session activated for alarm")
-        } catch {
-            print("❌ Failed to setup critical audio session: \(error)")
         }
     }
     
@@ -482,24 +419,9 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         print("📱 isSessionActive set to: \(isSessionActive)")
 
-        // Setup audio session for background playback
-        setupAudioSession()
-
-        // Generate and play silent audio for the session duration
-        // This keeps the app alive in the background
-        print("🔊 Generating silent audio for \(duration/60) minutes...")
-        backgroundAudioPlayer = generateSilentAudio(duration: duration)
-
-        if let player = backgroundAudioPlayer {
-            player.delegate = self
-            player.prepareToPlay()
-            let success = player.play()
-            print(success ? "✅ Silent audio playback started" : "❌ Failed to start silent audio playback")
-        } else {
-            print("⚠️ Failed to generate silent audio, falling back to background task")
-            // Fallback to background task if audio generation fails
-            startBackgroundTask()
-        }
+        // Disable idle timer to keep phone awake during meditation
+        UIApplication.shared.isIdleTimerDisabled = true
+        print("📱 Idle timer disabled - phone will stay awake during meditation")
 
         // Create new session
         currentSession = Session(
@@ -542,19 +464,15 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         timer = nil
         isSessionActive = false
 
-        // Stop background audio playback
-        backgroundAudioPlayer?.stop()
-        backgroundAudioPlayer = nil
-        print("🔊 Stopped background audio playback")
-
-        // End background task
-        endBackgroundTask()
+        // Re-enable idle timer to allow phone to sleep normally
+        UIApplication.shared.isIdleTimerDisabled = false
+        print("📱 Idle timer re-enabled - phone can sleep normally")
 
         // End Live Activity
         endLiveActivity()
 
-        // Cancel scheduled notification since session is ending
-        cancelSessionNotification()
+        // DON'T cancel notification - let it fire as confirmation
+        // User will get both in-app sound and notification for reliability
 
         // Complete current session
         completeAndSaveSession()
@@ -704,93 +622,6 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     // MARK: - Background Task Management
     
-    private func startBackgroundTask() {
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MeditationTimer") {
-            // This block is called when the background task is about to expire
-            print("⚠️ Background task expiring - ensuring session completion")
-            DispatchQueue.main.async {
-                // If session is still active, save current progress and schedule a backup notification
-                if self.isSessionActive {
-                    print("💾 Saving session progress before background task expires")
-                    
-                    // Force save current session state
-                    if var currentSession = self.currentSession {
-                        currentSession.endDate = Date()
-                        currentSession.actualDuration = Date().timeIntervalSince(currentSession.startDate)
-                        
-                        // Save the session even if incomplete
-                        self.sessions.append(currentSession)
-                        self.saveSessions()
-                        UserDefaults.standard.synchronize()
-                        
-                        // Save to HealthKit
-                        self.healthManager?.saveMindfulSession(currentSession)
-                        
-                        print("✅ Session saved before background expiration: \(currentSession.formattedDuration)")
-                    }
-                    
-                    // Session will complete when app comes back to foreground
-                }
-                self.endBackgroundTask()
-            }
-        }
-        print("🔄 Background task started: \(backgroundTaskID.rawValue)")
-    }
-    
-    private func scheduleBackupCompletionNotification(remainingTime: TimeInterval) {
-        let content = UNMutableNotificationContent()
-        content.title = "🧘‍♀️ Meditation Complete"
-        content.body = "Your meditation session has finished while the app was in background."
-        content.sound = UNNotificationSound.default
-        content.badge = 1
-        content.categoryIdentifier = "MEDITATION_COMPLETE"
-        
-        if #available(iOS 15.0, *) {
-            content.interruptionLevel = .timeSensitive
-            content.relevanceScore = 1.0
-        }
-        
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingTime, repeats: false)
-        let request = UNNotificationRequest(identifier: "backup_completion", content: content, trigger: trigger)
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Failed to schedule backup notification: \(error)")
-            } else {
-                print("✅ Backup completion notification scheduled for \(Int(remainingTime))s")
-            }
-        }
-        
-        // Schedule additional backup notifications at 10-second intervals
-        for i in 1...3 {
-            let backupContent = UNMutableNotificationContent()
-            backupContent.title = "🧘‍♀️ Meditation Complete"
-            backupContent.body = "Your meditation session has finished. Tap to return to the app."
-            backupContent.sound = UNNotificationSound.default
-            backupContent.badge = 1
-            
-            if #available(iOS 15.0, *) {
-                backupContent.interruptionLevel = .timeSensitive
-            }
-            
-            let backupTrigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingTime + TimeInterval(i * 10), repeats: false)
-            let backupRequest = UNNotificationRequest(identifier: "backup_completion_\(i)", content: backupContent, trigger: backupTrigger)
-            
-            UNUserNotificationCenter.current().add(backupRequest) { error in
-                if error == nil {
-                    print("✅ Backup alarm \(i) scheduled")
-                }
-            }
-        }
-    }
-    
-    private func endBackgroundTask() {
-        if backgroundTaskID != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskID)
-            backgroundTaskID = .invalid
-            print("🔄 Background task ended")
-        }
-    }
     
     // MARK: - Live Activity Management
     
@@ -842,7 +673,12 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         )
         
         Task {
-            await currentActivity?.update(using: updatedState)
+            await currentActivity?.update(
+                ActivityContent<MindfulBooActivityAttributes.ContentState>(
+                    state: updatedState,
+                    staleDate: nil
+                )
+            )
         }
     }
     
@@ -858,7 +694,13 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         )
         
         Task {
-            await currentActivity?.end(using: finalState, dismissalPolicy: .immediate)
+            await currentActivity?.end(
+                ActivityContent<MindfulBooActivityAttributes.ContentState>(
+                    state: finalState,
+                    staleDate: nil
+                ),
+                dismissalPolicy: .immediate
+            )
             print("Live Activity ended")
         }
     }
@@ -1014,7 +856,7 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     // MARK: - Notification Support
     
     private func requestNotificationPermissions(completion: @escaping (Bool) -> Void = { _ in }) {
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .provisional]
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
 
         UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
             if let error = error {
@@ -1043,11 +885,12 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         content.body = "Your \(Int(duration/60))-minute session has finished. Well done!"
         content.badge = 1
         content.categoryIdentifier = "MEDITATION_COMPLETE"
-        content.sound = UNNotificationSound.defaultCritical
-        
-        // For iOS 15+, use critical interruption level to break through Do Not Disturb and locked screen
+        // Use default notification sound (distinct and reliable)
+        content.sound = UNNotificationSound.default
+
+        // For iOS 15+, use timeSensitive to ensure notification is delivered prominently
         if #available(iOS 15.0, *) {
-            content.interruptionLevel = .critical
+            content.interruptionLevel = .timeSensitive
             content.relevanceScore = 1.0
         }
         
@@ -1064,7 +907,12 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
             if let error = error {
                 print("❌ Failed to schedule completion notification: \(error)")
             } else {
+                let fireDate = Date().addingTimeInterval(duration)
                 print("✅ Scheduled completion notification for \(Int(duration/60)) minutes")
+                print("   📅 Will fire at: \(fireDate)")
+                print("   🔔 Notification ID: \(self.notificationIdentifier)")
+                print("   🔊 Sound: default (system notification sound)")
+                print("   ⚡️ Interruption Level: timeSensitive")
             }
         }
         
@@ -1075,81 +923,6 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
     
-    private func scheduleBackupAlarms(duration: TimeInterval) {
-        // Schedule multiple backup alarms to ensure the user gets notified
-        let backupTimes = [10, 20, 30] // seconds after main notification
-        
-        for (index, delay) in backupTimes.enumerated() {
-            let backupContent = UNMutableNotificationContent()
-            backupContent.title = "🚨 Meditation Session Complete"
-            backupContent.body = "Your meditation timer has finished. Tap to return to the app."
-            backupContent.badge = 1
-            backupContent.sound = UNNotificationSound.defaultCritical
-            
-            // Critical interruption for backup alarms
-            if #available(iOS 15.0, *) {
-                backupContent.interruptionLevel = .critical
-                backupContent.relevanceScore = 1.0
-            }
-            
-            let backupTrigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: duration + TimeInterval(delay),
-                repeats: false
-            )
-            
-            let backupRequest = UNNotificationRequest(
-                identifier: "meditation_alarm_backup_\(index)",
-                content: backupContent,
-                trigger: backupTrigger
-            )
-            
-            UNUserNotificationCenter.current().add(backupRequest) { error in
-                if let error = error {
-                    print("❌ Failed to schedule backup alarm \(index): \(error)")
-                } else {
-                    print("✅ Scheduled backup alarm \(index) (\(delay)s delay)")
-                }
-            }
-        }
-    }
-    
-    private func scheduleRapidFireAlarms(duration: TimeInterval) {
-        // Schedule rapid-fire alarms to break through iOS power management
-        let rapidFireDelays = [0, 3, 6, 9, 12, 15, 20, 25, 30] // seconds after main alarm
-        
-        for (index, delay) in rapidFireDelays.enumerated() {
-            let rapidContent = UNMutableNotificationContent()
-            rapidContent.title = "🚨 Meditation Timer Complete"
-            rapidContent.body = "Your meditation session has finished. Wake up!"
-            rapidContent.badge = 1
-            rapidContent.sound = UNNotificationSound.defaultCritical
-            
-            // Maximum interruption level
-            if #available(iOS 15.0, *) {
-                rapidContent.interruptionLevel = .critical
-                rapidContent.relevanceScore = 1.0
-            }
-            
-            let rapidTrigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: duration + TimeInterval(delay),
-                repeats: false
-            )
-            
-            let rapidRequest = UNNotificationRequest(
-                identifier: "meditation_rapid_alarm_\(index)",
-                content: rapidContent,
-                trigger: rapidTrigger
-            )
-            
-            UNUserNotificationCenter.current().add(rapidRequest) { error in
-                if error == nil {
-                    print("✅ Scheduled rapid-fire alarm \(index) (\(delay)s delay)")
-                }
-            }
-        }
-        
-        print("🚨 Scheduled \(rapidFireDelays.count) rapid-fire critical alarms")
-    }
     
     private func scheduleIntervalNotifications(duration: TimeInterval, settings: SessionNotificationSettings) {
         guard settings.intervalType != .none else { return }
@@ -1245,33 +1018,21 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private func cancelSessionNotification() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationIdentifier])
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationIdentifier])
-        
-        // Cancel backup completion notifications
-        let backupIds = ["backup_completion", "backup_completion_1", "backup_completion_2", "backup_completion_3"]
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: backupIds)
-        
-        // Cancel new backup alarms
-        let backupAlarmIds = (0...2).map { "meditation_alarm_backup_\($0)" }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: backupAlarmIds)
-        
-        // Cancel rapid-fire alarms
-        let rapidFireAlarmIds = (0...8).map { "meditation_rapid_alarm_\($0)" }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: rapidFireAlarmIds)
-        
+
         // Cancel all session-related notifications
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             let sessionIds = requests.compactMap { request in
-                request.identifier.hasPrefix("interval_") || 
+                request.identifier.hasPrefix("interval_") ||
                 request.identifier.hasPrefix("progress_") ? request.identifier : nil
             }
-            
+
             if !sessionIds.isEmpty {
                 UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: sessionIds)
                 print("Cancelled \(sessionIds.count) session notifications")
             }
         }
-        
-        print("Cancelled all session notifications, backup completion, and backup alarms")
+
+        print("Cancelled all session notifications")
     }
     
     private func checkNotificationSettingsBeforeScheduling(completion: @escaping () -> Void) {
@@ -1304,21 +1065,6 @@ class SessionManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
 
-    // MARK: - AVAudioPlayerDelegate
-
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        print("🔊 Background audio finished playing, flag: \(flag)")
-
-        // When the silent audio finishes, the session should be complete
-        if player == backgroundAudioPlayer {
-            print("✅ Silent audio completed - triggering session completion")
-            completeSessionSafely()
-        }
-    }
-
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        print("❌ Audio player decode error: \(error?.localizedDescription ?? "unknown")")
-    }
 }
 
 import AudioToolbox

@@ -629,18 +629,16 @@ struct ContentView: View {
                 buttonScale = true
             }
         }
-        .onChange(of: healthStore.isAuthorized) { isAuthorized in
-            if isAuthorized {
+        .onChange(of: healthStore.isAuthorized) { oldValue, newValue in
+            if newValue {
                 let streakCount = sessionManager.calculateConsecutiveDays()
                 healthStore.updateConsecutiveDays(streakCount)
-                print("🐛 Debug: Authorization changed to \(isAuthorized), recalculating consecutive days")
+                print("🐛 Debug: Authorization changed to \(newValue), recalculating consecutive days")
             }
         }
     }
     
     private func formatDurationDisplay() -> String {
-        let totalMinutes = selectedHours * 60 + selectedMinutes
-        
         if selectedHours == 0 {
             return "\(selectedMinutes) min"
         } else if selectedMinutes == 0 {
@@ -1495,13 +1493,13 @@ struct DurationPickerView: View {
                     }
                 }
             )
-            .onChange(of: selectedHours) { hours in
-                if hours == 24 {
+            .onChange(of: selectedHours) { oldValue, newValue in
+                if newValue == 24 {
                     selectedMinutes = 0
                 }
             }
-            .onChange(of: selectedMinutes) { minutes in
-                if selectedHours == 24 && minutes > 0 {
+            .onChange(of: selectedMinutes) { oldValue, newValue in
+                if selectedHours == 24 && newValue > 0 {
                     selectedMinutes = 0
                 }
             }

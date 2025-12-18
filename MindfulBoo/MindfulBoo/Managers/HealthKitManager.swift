@@ -254,6 +254,8 @@ class HealthKitManager: ObservableObject {
                 return "Tap to enable mindful sessions tracking"
             case .sharingDenied:
                 return "Mindful sessions access denied - check Settings"
+            case .sharingAuthorized:
+                return "Mindful sessions monitoring ready ✅"
             @unknown default:
                 return "Apple Watch required for mindful sessions monitoring"
             }
@@ -426,6 +428,8 @@ class HealthKitManager: ObservableObject {
                     return "Tap to enable State of Mind logging"
                 case .sharingDenied:
                     return "State of Mind access denied - check Settings"
+                case .sharingAuthorized:
+                    return "State of Mind syncing to Health app ✅"
                 @unknown default:
                     return "State of Mind permissions required"
                 }
