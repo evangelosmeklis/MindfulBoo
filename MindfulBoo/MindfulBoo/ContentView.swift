@@ -14,7 +14,25 @@ struct ContentView: View {
     @State private var headerAnimation = false
     @State private var buttonScale = false
 
-    
+    // iPad detection
+    private var isIPad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
+    // Adaptive button sizes - larger on iPad but proportional
+    private var mainButtonSize: CGFloat {
+        isIPad ? 220 : 160
+    }
+
+    private var buttonGlowSize: CGFloat {
+        isIPad ? 300 : 220
+    }
+
+    // Adaptive spacing
+    private var contentSpacing: CGFloat {
+        isIPad ? 50 : 40
+    }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -166,7 +184,7 @@ struct ContentView: View {
                     ActiveSessionView()
                 } else {
                     // Circular start button centered
-                    VStack(spacing: 40) {
+                    VStack(spacing: contentSpacing) {
                         // Large circular start button
                         Button(action: startMeditation) {
                             ZStack {
@@ -184,7 +202,7 @@ struct ContentView: View {
                                             endRadius: 110
                                         )
                                     )
-                                    .frame(width: 220, height: 220)
+                                    .frame(width: buttonGlowSize, height: buttonGlowSize)
                                     .scaleEffect(buttonScale ? 1.1 : 1.0)
                                     .opacity(buttonScale ? 0.8 : 0.5)
 
@@ -201,7 +219,7 @@ struct ContentView: View {
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                    .frame(width: 160, height: 160)
+                                    .frame(width: mainButtonSize, height: mainButtonSize)
                                     .overlay(
                                         Circle()
                                             .fill(.thinMaterial)
@@ -556,6 +574,7 @@ struct ContentView: View {
                 .ignoresSafeArea()
             )
         }
+        .navigationViewStyle(.stack)
         .sheet(isPresented: $isTimerPickerPresented) {
             DurationPickerView(selectedHours: $selectedHours, selectedMinutes: $selectedMinutes)
         }
@@ -883,8 +902,27 @@ struct ActiveSessionView: View {
     @State private var breatheAnimation = false
     @State private var rotationDegrees = 0.0
 
+    // iPad detection
+    private var isIPad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
+    // Adaptive sizes for progress circle
+    private var progressCircleSize: CGFloat {
+        isIPad ? 280 : 220
+    }
+
+    private var progressGlowSize: CGFloat {
+        isIPad ? 300 : 240
+    }
+
+    // Adaptive spacing
+    private var contentSpacing: CGFloat {
+        isIPad ? 50 : 40
+    }
+
     var body: some View {
-        VStack(spacing: 40) {
+        VStack(spacing: contentSpacing) {
             // Enhanced progress circle with animations
             ZStack {
                 // Outer glow ring
@@ -897,7 +935,7 @@ struct ActiveSessionView: View {
                         ),
                         lineWidth: 20
                     )
-                    .frame(width: 240, height: 240)
+                    .frame(width: progressGlowSize, height: progressGlowSize)
                     .blur(radius: 10)
                     .scaleEffect(pulseAnimation ? 1.05 : 1.0)
                     .opacity(pulseAnimation ? 0.6 : 0.3)
@@ -912,7 +950,7 @@ struct ActiveSessionView: View {
                         ),
                         lineWidth: 12
                     )
-                    .frame(width: 220, height: 220)
+                    .frame(width: progressCircleSize, height: progressCircleSize)
 
                 // Progress arc with gradient
                 Circle()
@@ -932,7 +970,7 @@ struct ActiveSessionView: View {
                         ),
                         style: StrokeStyle(lineWidth: 12, lineCap: .round)
                     )
-                    .frame(width: 220, height: 220)
+                    .frame(width: progressCircleSize, height: progressCircleSize)
                     .rotationEffect(.degrees(-90))
                     .animation(.spring(response: 0.8, dampingFraction: 0.8), value: sessionManager.progress)
                     .shadow(color: .blue.opacity(0.5), radius: 8, x: 0, y: 0)
