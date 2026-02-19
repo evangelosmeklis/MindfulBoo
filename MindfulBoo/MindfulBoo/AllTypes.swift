@@ -347,16 +347,19 @@ class SettingsManager: ObservableObject {
 
 class SessionManager: NSObject, ObservableObject {
     @Published var isSessionActive = false
+    @Published var isPaused = false
     @Published var currentSession: Session?
     @Published var progress: Double = 0
     @Published var timeRemaining: TimeInterval = 0
     @Published var sessions: [Session] = []
     @Published var showSessionSavedMessage = false
-    
+
     private var timer: Timer?
     private var sessionDuration: TimeInterval = 0
     private var startTime: Date?
     private var sessionEndTime: Date?
+    private var pauseStartTime: Date?
+    private var totalPausedDuration: TimeInterval = 0
     private var audioPlayer: AVAudioPlayer?
     private var cancellables = Set<AnyCancellable>()
     private var healthManager: HealthKitManager?
@@ -415,6 +418,9 @@ class SessionManager: NSObject, ObservableObject {
         startTime = Date()
         sessionEndTime = Date().addingTimeInterval(duration)
         isSessionActive = true
+        isPaused = false
+        pauseStartTime = nil
+        totalPausedDuration = 0
         progress = 0
 
         print("📱 isSessionActive set to: \(isSessionActive)")
@@ -463,6 +469,9 @@ class SessionManager: NSObject, ObservableObject {
         timer?.invalidate()
         timer = nil
         isSessionActive = false
+        isPaused = false
+        pauseStartTime = nil
+        totalPausedDuration = 0
 
         // Re-enable idle timer to allow phone to sleep normally
         UIApplication.shared.isIdleTimerDisabled = false
@@ -483,6 +492,31 @@ class SessionManager: NSObject, ObservableObject {
         print("✅ Meditation session stopped - timers synchronized")
     }
     
+    // MARK: - Pause / Resume
+
+    func pauseSession() {
+        guard isSessionActive, !isPaused else { return }
+        timer?.invalidate()
+        timer = nil
+        isPaused = true
+        pauseStartTime = Date()
+        // Allow screen to sleep while paused
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    func resumeSession() {
+        guard isSessionActive, isPaused else { return }
+        if let ps = pauseStartTime {
+            totalPausedDuration += Date().timeIntervalSince(ps)
+            pauseStartTime = nil
+        }
+        isPaused = false
+        UIApplication.shared.isIdleTimerDisabled = true
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateTimer()
+        }
+    }
+
     // MARK: - Safe Session Completion
     
     private func completeSessionSafely() {
@@ -525,9 +559,9 @@ class SessionManager: NSObject, ObservableObject {
     
     func forceSyncTimers() {
         guard let startTime = startTime, isSessionActive else { return }
-        
+
         let now = Date()
-        let elapsed = now.timeIntervalSince(startTime)
+        let elapsed = now.timeIntervalSince(startTime) - totalPausedDuration
         let syncedTimeRemaining = max(0, sessionDuration - elapsed)
         let syncedProgress = min(1.0, elapsed / sessionDuration)
         
@@ -557,11 +591,11 @@ class SessionManager: NSObject, ObservableObject {
     }
     
     private func updateTimer() {
-        guard let startTime = startTime, isSessionActive else { return }
-        
+        guard let startTime = startTime, isSessionActive, !isPaused else { return }
+
         // Use consistent time calculation for both app and widget
         let now = Date()
-        let elapsed = now.timeIntervalSince(startTime)
+        let elapsed = now.timeIntervalSince(startTime) - totalPausedDuration
         let calculatedTimeRemaining = max(0, sessionDuration - elapsed)
         let calculatedProgress = min(1.0, elapsed / sessionDuration)
         
@@ -1092,117 +1126,122 @@ struct EditReminderView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Time picker with Liquid Glass
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Reminder Time")
-                            .font(.headline)
-                        
-                        DatePicker("Time", selection: $reminder.time, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(WheelDatePickerStyle())
-                            .labelsHidden()
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Button("cancel") {
+                        presentationMode.wrappedValue.dismiss()
                     }
-                    .padding()
-                    .background(
-                        ZStack {
-                            // Liquid Glass time picker background
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.regularMaterial)
-                                .opacity(0.9)
-                            
-                            // Glass highlight
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.clear,
-                                            Color.orange.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
-                            // Glass border
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                                    Color.white.opacity(0.1),
-                                    lineWidth: 1
-                                )
-                        }
-                    )
-                    
-                    // Message input
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Message")
-                            .font(.headline)
-                        
-                        TextField("Reminder message", text: $reminder.message, axis: .vertical)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .lineLimit(3)
-                        
-                        Text("Suggested messages:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(defaultMessages, id: \.self) { defaultMessage in
-                                    Button(defaultMessage) {
-                                        reminder.message = defaultMessage
-                                    }
-                                    .font(.caption)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        ZStack {
-                                            // Liquid Glass suggestion button
-                                            Capsule()
-                                                .fill(.thinMaterial)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.blue.opacity(0.2))
-                                                )
-                                            
-                                            // Glass highlight
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.4),
-                                                            Color.clear
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
-                                        }
-                                    )
-                                    .foregroundColor(.blue)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(.mbSecondary)
+
                     Spacer()
+
+                    Text("edit reminder")
+                        .font(.custom("Georgia-Italic", size: 18))
+                        .foregroundColor(.mbPrimary)
+
+                    Spacer()
+
+                    Button("save") {
+                        onSave(reminder)
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(
+                        reminder.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? Color.mbSecondary.opacity(0.35)
+                            : Color.mbAccent
+                    )
+                    .disabled(reminder.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+                .padding(.bottom, 32)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 28) {
+                        // Time picker
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("time")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+
+                            DatePicker("Time", selection: $reminder.time, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(WheelDatePickerStyle())
+                                .labelsHidden()
+                                .tint(Color.mbAccent)
+                        }
+                        .padding(.horizontal, 28)
+
+                        Rectangle()
+                            .fill(Color.mbSecondary.opacity(0.08))
+                            .frame(height: 0.5)
+                            .padding(.horizontal, 28)
+
+                        // Message
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("message")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+
+                            TextField("reminder message", text: $reminder.message, axis: .vertical)
+                                .font(.custom("Georgia", size: 15))
+                                .foregroundColor(.mbPrimary)
+                                .lineLimit(3)
+                                .padding(16)
+                                .background(Color.mbSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .stroke(Color.mbSecondary.opacity(0.12), lineWidth: 0.5)
+                                )
+
+                            Text("suggestions")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.top, 4)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(defaultMessages, id: \.self) { defaultMessage in
+                                        Button(action: { reminder.message = defaultMessage }) {
+                                            Text(defaultMessage)
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.mbSecondary)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 7)
+                                                .background(Color.mbSurface)
+                                                .overlay(
+                                                    Capsule()
+                                                        .stroke(Color.mbSecondary.opacity(0.15), lineWidth: 0.5)
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 28)
+                            }
+                            .padding(.horizontal, -28)
+                        }
+                        .padding(.horizontal, 28)
+                    }
+                    .padding(.bottom, 60)
+                }
             }
-            .navigationTitle("Edit Reminder")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Save") {
-                    onSave(reminder)
-                    presentationMode.wrappedValue.dismiss()
-                }
-                .disabled(reminder.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            )
         }
     }
 }
@@ -1212,84 +1251,88 @@ struct SettingsView: View {
     @State private var selectedTab = 0
 
     var body: some View {
-        NavigationView {
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
             VStack(spacing: 0) {
-                // Enhanced minimal tab picker
-                HStack(spacing: 8) {
-                    TabButton(
-                        title: "Session",
-                        isSelected: selectedTab == 0,
-                        action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedTab = 0
-                            }
-                        }
-                    )
-
-                    TabButton(
-                        title: "Reminders",
-                        isSelected: selectedTab == 1,
-                        action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedTab = 1
-                            }
-                        }
-                    )
-
-                    TabButton(
-                        title: "Appearance",
-                        isSelected: selectedTab == 2,
-                        action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedTab = 2
-                            }
-                        }
-                    )
+                // Header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("settings")
+                            .font(.custom("Georgia-Italic", size: 30))
+                            .foregroundColor(.mbPrimary)
+                        Text(tabLabel)
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
+                    }
+                    Spacer()
+                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                        Circle()
+                            .stroke(Color.mbSecondary.opacity(0.22), lineWidth: 0.7)
+                            .frame(width: 34, height: 34)
+                            .overlay(
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .light))
+                                    .foregroundColor(.mbSecondary)
+                            )
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 28)
+                .padding(.top, 48)
+                .padding(.bottom, 28)
+
+                // Minimal tab row
+                HStack(spacing: 0) {
+                    ForEach(Array(["session", "reminders", "appearance"].enumerated()), id: \.offset) { i, label in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = i }
+                        }) {
+                            VStack(spacing: 6) {
+                                Text(label)
+                                    .font(.system(size: 9, weight: selectedTab == i ? .semibold : .regular))
+                                    .tracking(1.5)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(selectedTab == i ? Color.mbPrimary : Color.mbSecondary)
+                                Rectangle()
+                                    .fill(selectedTab == i ? Color.mbAccent : Color.clear)
+                                    .frame(height: 0.7)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 4)
+
+                // Thin separator
+                Rectangle()
+                    .fill(Color.mbSecondary.opacity(0.10))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 28)
 
                 // Tab content
                 TabView(selection: $selectedTab) {
                     SessionNotificationSettingsView()
                         .tag(0)
-
                     DailyReminderSettingsView()
                         .tag(1)
-
                     AppearanceSettingsView()
                         .tag(2)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
-            .navigationBarItems(
-                trailing: Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [.white.opacity(0.3), .clear],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
-                            )
-                            .frame(width: 32, height: 32)
+        }
+    }
 
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            )
+    private var tabLabel: String {
+        switch selectedTab {
+        case 0: return "notifications"
+        case 1: return "daily reminders"
+        default: return "appearance"
         }
     }
 }
@@ -1301,73 +1344,20 @@ struct TabButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .bold : .medium)
-                .foregroundColor(isSelected ? .white : .secondary)
-                .frame(height: 44)
-                .frame(maxWidth: .infinity)
-                .background(
-                    Group {
-                        if isSelected {
-                            ZStack {
-                                // Gradient background
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(red: 0.2, green: 0.85, blue: 0.4),
-                                                Color(red: 0.1, green: 0.7, blue: 0.95)
-                                            ],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-
-                                // Glass overlay
-                                Capsule()
-                                    .fill(.thinMaterial)
-                                    .opacity(0.2)
-
-                                // Highlight
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.5),
-                                                Color.clear,
-                                                Color.white.opacity(0.2)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .blendMode(.overlay)
-
-                                // Border
-                                Capsule()
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [.white.opacity(0.4), .cyan.opacity(0.3)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1.5
-                                    )
-                            }
-                            .shadow(color: .green.opacity(0.3), radius: 8, x: 0, y: 4)
-                        } else {
-                            // Unselected - minimal
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
-                                )
-                        }
-                    }
-                )
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                    .tracking(1.5)
+                    .textCase(.uppercase)
+                    .foregroundColor(isSelected ? Color.mbPrimary : Color.mbSecondary)
+                Rectangle()
+                    .fill(isSelected ? Color.mbAccent : Color.clear)
+                    .frame(height: 0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -1375,31 +1365,35 @@ struct TabButton: View {
 
 struct SessionNotificationSettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
-    
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Session Notifications")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Configure how often you receive notifications during your meditation sessions.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("notifications")
+                        .font(.system(size: 8, weight: .medium))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(.mbSecondary)
+                    Text("during sessions")
+                        .font(.custom("Georgia-Italic", size: 22))
+                        .foregroundColor(.mbPrimary)
                 }
                 .padding(.horizontal)
-                
+                .padding(.top, 16)
+
                 // Enable/Disable toggle
                 VStack(spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Session Notifications")
-                                .font(.headline)
-                            Text("Enable notifications during meditation")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Text("enable notifications")
+                                .font(.custom("Georgia", size: 15))
+                                .foregroundColor(.mbPrimary)
+                            Text("notify during meditation")
+                                .font(.system(size: 9))
+                                .tracking(1)
+                                .foregroundColor(.mbSecondary)
                         }
                         
                         Spacer()
@@ -1409,47 +1403,28 @@ struct SessionNotificationSettingsView: View {
                             set: { _ in settingsManager.toggleSessionNotifications() }
                         ))
                     }
-                    .padding()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                     .background(
-                        ZStack {
-                            // Liquid Glass settings card
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.regularMaterial)
-                                .opacity(0.9)
-                            
-                            // Glass highlight
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.clear,
-                                            Color.blue.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
-                            // Glass border
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                                    Color.white.opacity(0.1),
-                                    lineWidth: 1
-                                )
-                        }
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.mbSurface)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.mbSecondary.opacity(0.15), lineWidth: 0.5))
                     )
                 }
                 .padding(.horizontal)
-                
+
                 if settingsManager.settings.sessionNotifications.isEnabled {
                     // Interval notifications
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Interval Notifications")
-                            .font(.headline)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("interval")
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
                             .padding(.horizontal)
-                        
-                        VStack(spacing: 12) {
+
+                        VStack(spacing: 8) {
                             ForEach(SessionNotificationSettings.NotificationInterval.allCases, id: \.self) { interval in
                                 IntervalOptionRow(
                                     interval: interval,
@@ -1461,19 +1436,17 @@ struct SessionNotificationSettingsView: View {
                         }
                         .padding(.horizontal)
                     }
-                    
+
                     // Progress notifications
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Progress Notifications")
-                            .font(.headline)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("milestones")
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
                             .padding(.horizontal)
-                        
-                        Text("Get notified at specific points during your session")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 12) {
+
+                        VStack(spacing: 8) {
                             ForEach(SessionNotificationSettings.ProgressNotification.allCases, id: \.self) { notification in
                                 ProgressNotificationRow(
                                     notification: notification,
@@ -1520,43 +1493,22 @@ struct IntervalOptionRow: View {
                 
                 Spacer()
                 
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.title3)
-                }
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .light))
+                    .foregroundColor(isSelected ? Color.mbAccent : Color.mbSecondary.opacity(0.45))
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(
-                ZStack {
-                    // Base glass material
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(isSelected ? .thinMaterial : .ultraThinMaterial)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(isSelected ? Color.blue.opacity(0.2) : Color.clear)
-                        )
-                    
-                    // Glass highlight
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(isSelected ? 0.3 : 0.1),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.mbSurface : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                isSelected ? Color.mbAccent.opacity(0.35) : Color.mbSecondary.opacity(0.15),
+                                lineWidth: 0.7
                             )
-                        )
-                    
-                    // Glass border
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(
-                            isSelected ? Color.blue.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: isSelected ? 1.5 : 0.5
-                        )
-                }
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1567,57 +1519,30 @@ struct ProgressNotificationRow: View {
     let notification: SessionNotificationSettings.ProgressNotification
     let isEnabled: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack {
                 Text(notification.displayName)
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                
+                    .font(.custom("Georgia", size: 15))
+                    .foregroundColor(.mbPrimary)
                 Spacer()
-                
-                if isEnabled {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.title3)
-                } else {
-                    Image(systemName: "circle")
-                        .foregroundColor(.secondary)
-                        .font(.title3)
-                }
+                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .light))
+                    .foregroundColor(isEnabled ? Color.mbAccent : Color.mbSecondary.opacity(0.45))
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(
-                ZStack {
-                    // Base glass material for progress notifications
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(isEnabled ? .thinMaterial : .ultraThinMaterial)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(isEnabled ? Color.blue.opacity(0.2) : Color.clear)
-                        )
-                    
-                    // Glass highlight
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(isEnabled ? 0.3 : 0.1),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isEnabled ? Color.mbSurface : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                isEnabled ? Color.mbAccent.opacity(0.35) : Color.mbSecondary.opacity(0.15),
+                                lineWidth: 0.7
                             )
-                        )
-                    
-                    // Glass border
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(
-                            isEnabled ? Color.blue.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: isEnabled ? 1.5 : 0.5
-                        )
-                }
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1648,96 +1573,82 @@ struct DailyReminderSettingsView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Daily Reminders")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Set up to 10 daily reminders to help you maintain your meditation practice.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Section header
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("reminders")
+                        .font(.system(size: 8, weight: .medium))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(.mbSecondary)
+                    Text("daily practice")
+                        .font(.custom("Georgia-Italic", size: 22))
+                        .foregroundColor(.mbPrimary)
                 }
-                .padding(.horizontal)
-                
-                // Enable/Disable toggle
-                VStack(spacing: 16) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Daily Reminders")
-                                .font(.headline)
-                            Text("Enable daily meditation reminders")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Toggle("", isOn: Binding(
-                            get: { settingsManager.settings.dailyReminders.isEnabled },
-                            set: { _ in settingsManager.toggleDailyReminders() }
-                        ))
+                .padding(.horizontal, 28)
+                .padding(.top, 24)
+                .padding(.bottom, 24)
+
+                // Master toggle
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("enable reminders")
+                            .font(.custom("Georgia", size: 15))
+                            .foregroundColor(.mbPrimary)
+                        Text("receive daily meditation prompts")
+                            .font(.system(size: 9))
+                            .tracking(0.5)
+                            .foregroundColor(.mbSecondary)
                     }
-                    .padding()
-                    .background(
-                        ZStack {
-                            // Liquid Glass daily reminders card
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.regularMaterial)
-                                .opacity(0.9)
-                            
-                            // Glass highlight with green tint
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.clear,
-                                            Color.green.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
-                            // Glass border
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                                    Color.white.opacity(0.1),
-                                    lineWidth: 1
-                                )
-                        }
-                    )
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { settingsManager.settings.dailyReminders.isEnabled },
+                        set: { _ in settingsManager.toggleDailyReminders() }
+                    ))
+                    .tint(Color.mbAccent)
                 }
-                .padding(.horizontal)
-                
+                .padding(.horizontal, 28)
+                .padding(.vertical, 18)
+                .background(Color.mbSurface)
+                .overlay(
+                    Rectangle()
+                        .stroke(Color.mbSecondary.opacity(0.10), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+
                 if settingsManager.settings.dailyReminders.isEnabled {
                     // Add reminder button
                     if settingsManager.settings.dailyReminders.reminders.count < 10 {
                         Button(action: { showingAddReminder = true }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(.blue)
-                                Text("Add Reminder")
-                                    .fontWeight(.semibold)
-                                Spacer()
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 10, weight: .light))
+                                    .foregroundColor(Color.mbAccent)
+                                Text("add reminder")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .tracking(2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(Color.mbAccent)
                             }
-                            .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(12)
+                            .padding(.horizontal, 28)
+                            .padding(.bottom, 20)
                         }
-                        .padding(.horizontal)
+                        .buttonStyle(.plain)
                     }
-                    
+
                     // Reminders list
                     if !settingsManager.settings.dailyReminders.reminders.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Your Reminders")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
+                        VStack(spacing: 0) {
+                            Text("scheduled")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.horizontal, 28)
+                                .padding(.bottom, 12)
+
                             ForEach(Array(sortedReminders.enumerated()), id: \.element.id) { index, reminder in
                                 let originalIndex = settingsManager.settings.dailyReminders.reminders.firstIndex(where: { $0.id == reminder.id }) ?? 0
                                 DailyReminderRow(
@@ -1745,35 +1656,36 @@ struct DailyReminderSettingsView: View {
                                     isEnabled: reminder.isEnabled,
                                     onToggle: { settingsManager.toggleDailyReminder(at: originalIndex) },
                                     onDelete: { settingsManager.removeDailyReminder(at: originalIndex) },
-                                    onEdit: {
-                                        reminderToEdit = reminder
-                                    }
+                                    onEdit: { reminderToEdit = reminder }
                                 )
+
+                                Rectangle()
+                                    .fill(Color.mbSecondary.opacity(0.07))
+                                    .frame(height: 0.5)
+                                    .padding(.horizontal, 28)
                             }
                         }
-                        .padding(.horizontal)
                     } else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "bell.slash")
-                                .font(.system(size: 40))
-                                .foregroundColor(.secondary)
-                            
-                            Text("No reminders set")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("Add your first reminder to get started")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                        VStack(spacing: 16) {
+                            Circle()
+                                .stroke(Color.mbSecondary.opacity(0.18), lineWidth: 0.7)
+                                .frame(width: 52, height: 52)
+                                .overlay(
+                                    Image(systemName: "bell")
+                                        .font(.system(size: 18, weight: .ultraLight))
+                                        .foregroundColor(Color.mbSecondary.opacity(0.45))
+                                )
+                            Text("no reminders set")
+                                .font(.custom("Georgia-Italic", size: 16))
+                                .foregroundColor(Color.mbPrimary.opacity(0.45))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+                        .padding(.vertical, 44)
                     }
                 }
-                
-                Spacer(minLength: 100)
+
+                Spacer(minLength: 60)
             }
-            .padding(.vertical)
         }
         .sheet(isPresented: $showingAddReminder) {
             AddReminderView(
@@ -1782,7 +1694,6 @@ struct DailyReminderSettingsView: View {
                 onSave: {
                     settingsManager.addDailyReminder(time: newReminderTime, message: newReminderMessage)
                     showingAddReminder = false
-                    // Reset for next time
                     newReminderTime = Date()
                     newReminderMessage = "Time for your daily meditation 🧘‍♀️"
                 }
@@ -1807,71 +1718,42 @@ struct DailyReminderRow: View {
     let onEdit: () -> Void
     
     var body: some View {
-        HStack {
+        HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(reminder.formattedTime)
-                    .font(.headline)
-                    .foregroundColor(isEnabled ? .primary : .secondary)
-                
+                    .font(.custom("Georgia", size: 16))
+                    .foregroundColor(isEnabled ? .mbPrimary : Color.mbPrimary.opacity(0.35))
                 Text(reminder.message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
+                    .font(.system(size: 9))
+                    .tracking(0.5)
+                    .foregroundColor(.mbSecondary)
+                    .lineLimit(1)
             }
-            
+
             Spacer()
-            
-            HStack(spacing: 12) {
+
+            HStack(spacing: 16) {
                 Toggle("", isOn: Binding(
                     get: { isEnabled },
                     set: { _ in onToggle() }
                 ))
-                
+                .tint(Color.mbAccent)
+
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
-                        .foregroundColor(.blue)
-                        .font(.title3)
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundColor(.mbSecondary)
                 }
-                
+
                 Button(action: onDelete) {
                     Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.title3)
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundColor(.red.opacity(0.50))
                 }
             }
         }
-        .padding()
-        .background(
-            ZStack {
-                // Liquid Glass reminder row
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? .thinMaterial : .ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(isEnabled ? Color.green.opacity(0.1) : Color.gray.opacity(0.05))
-                    )
-                
-                // Glass highlight
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(isEnabled ? 0.2 : 0.1),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Glass border
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        Color.white.opacity(isEnabled ? 0.2 : 0.1),
-                        lineWidth: 0.5
-                    )
-            }
-        )
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
     }
 }
 
@@ -1892,116 +1774,121 @@ struct AddReminderView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Time picker with Liquid Glass
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Reminder Time")
-                            .font(.headline)
-                        
-                        DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(WheelDatePickerStyle())
-                            .labelsHidden()
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Button("cancel") {
+                        presentationMode.wrappedValue.dismiss()
                     }
-                    .padding()
-                    .background(
-                        ZStack {
-                            // Liquid Glass time picker background
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.regularMaterial)
-                                .opacity(0.9)
-                            
-                            // Glass highlight
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.clear,
-                                            Color.orange.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            
-                            // Glass border
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                                    Color.white.opacity(0.1),
-                                    lineWidth: 1
-                                )
-                        }
-                    )
-                    
-                    // Message input
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Message")
-                            .font(.headline)
-                        
-                        TextField("Reminder message", text: $message, axis: .vertical)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .lineLimit(3)
-                        
-                        Text("Suggested messages:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(defaultMessages, id: \.self) { defaultMessage in
-                                    Button(defaultMessage) {
-                                        message = defaultMessage
-                                    }
-                                    .font(.caption)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        ZStack {
-                                            // Liquid Glass suggestion button
-                                            Capsule()
-                                                .fill(.thinMaterial)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.blue.opacity(0.2))
-                                                )
-                                            
-                                            // Glass highlight
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            Color.white.opacity(0.4),
-                                                            Color.clear
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
-                                        }
-                                    )
-                                    .foregroundColor(.blue)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(.mbSecondary)
+
                     Spacer()
+
+                    Text("add reminder")
+                        .font(.custom("Georgia-Italic", size: 18))
+                        .foregroundColor(.mbPrimary)
+
+                    Spacer()
+
+                    Button("save") {
+                        onSave()
+                    }
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(
+                        message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? Color.mbSecondary.opacity(0.35)
+                            : Color.mbAccent
+                    )
+                    .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+                .padding(.bottom, 32)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 28) {
+                        // Time picker
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("time")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+
+                            DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(WheelDatePickerStyle())
+                                .labelsHidden()
+                                .tint(Color.mbAccent)
+                        }
+                        .padding(.horizontal, 28)
+
+                        Rectangle()
+                            .fill(Color.mbSecondary.opacity(0.08))
+                            .frame(height: 0.5)
+                            .padding(.horizontal, 28)
+
+                        // Message
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("message")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+
+                            TextField("reminder message", text: $message, axis: .vertical)
+                                .font(.custom("Georgia", size: 15))
+                                .foregroundColor(.mbPrimary)
+                                .lineLimit(3)
+                                .padding(16)
+                                .background(Color.mbSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .stroke(Color.mbSecondary.opacity(0.12), lineWidth: 0.5)
+                                )
+
+                            Text("suggestions")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.top, 4)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(defaultMessages, id: \.self) { defaultMessage in
+                                        Button(action: { message = defaultMessage }) {
+                                            Text(defaultMessage)
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.mbSecondary)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 7)
+                                                .background(Color.mbSurface)
+                                                .overlay(
+                                                    Capsule()
+                                                        .stroke(Color.mbSecondary.opacity(0.15), lineWidth: 0.5)
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 28)
+                            }
+                            .padding(.horizontal, -28)
+                        }
+                        .padding(.horizontal, 28)
+                    }
+                    .padding(.bottom, 60)
+                }
             }
-            .navigationTitle("Add Reminder")
-            .navigationBarItems(
-                leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("Save") {
-                    onSave()
-                }
-                .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            )
         }
     }
 }
@@ -2014,136 +1901,59 @@ struct AppearanceSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Appearance")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("Choose how the app looks")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("appearance")
+                        .font(.system(size: 8, weight: .medium))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(.mbSecondary)
+                    Text("how the app looks")
+                        .font(.custom("Georgia-Italic", size: 22))
+                        .foregroundColor(.mbPrimary)
                 }
                 .padding(.horizontal)
-                .padding(.top, 20)
+                .padding(.top, 16)
 
-                // Appearance mode selector
-                VStack(spacing: 12) {
+                VStack(spacing: 8) {
                     ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                        let isSelected = settingsManager.settings.appearanceMode == mode
                         Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
                                 settingsManager.updateAppearanceMode(mode)
                             }
                         }) {
                             HStack(spacing: 16) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            RadialGradient(
-                                                gradient: Gradient(colors: [
-                                                    modeColor(for: mode).opacity(0.3),
-                                                    .clear
-                                                ]),
-                                                center: .center,
-                                                startRadius: 0,
-                                                endRadius: 30
-                                            )
-                                        )
-                                        .frame(width: 60, height: 60)
+                                Image(systemName: mode.icon)
+                                    .font(.system(size: 18, weight: .light))
+                                    .foregroundColor(isSelected ? Color.mbAccent : Color.mbSecondary)
+                                    .frame(width: 28)
 
-                                    Image(systemName: mode.icon)
-                                        .font(.title)
-                                        .foregroundStyle(
-                                            LinearGradient(
-                                                colors: modeGradient(for: mode),
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                }
-
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text(mode.displayName)
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-
+                                        .font(.custom("Georgia", size: 15))
+                                        .foregroundColor(.mbPrimary)
                                     Text(modeDescription(for: mode))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .font(.system(size: 9))
+                                        .tracking(0.5)
+                                        .foregroundColor(.mbSecondary)
                                 }
 
                                 Spacer()
 
-                                if settingsManager.settings.appearanceMode == mode {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.title2)
-                                        .foregroundStyle(
-                                            LinearGradient(
-                                                colors: [.green, .cyan],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                }
+                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 16, weight: .light))
+                                    .foregroundColor(isSelected ? Color.mbAccent : Color.mbSecondary.opacity(0.45))
                             }
-                            .padding(.vertical, 16)
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                             .background(
-                                ZStack {
-                                    if settingsManager.settings.appearanceMode == mode {
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(.ultraThinMaterial)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                modeColor(for: mode).opacity(0.15),
-                                                                .clear
-                                                            ],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        )
-                                                    )
-                                            )
-
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.4),
-                                                        Color.clear
-                                                    ],
-                                                    startPoint: .top,
-                                                    endPoint: .bottom
-                                                )
-                                            )
-
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .strokeBorder(
-                                                LinearGradient(
-                                                    colors: [
-                                                        modeColor(for: mode).opacity(0.5),
-                                                        modeColor(for: mode).opacity(0.2)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                ),
-                                                lineWidth: 1.5
-                                            )
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(.ultraThinMaterial)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
-                                            )
-                                    }
-                                }
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(isSelected ? Color.mbSurface : Color.clear)
+                                    .overlay(RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isSelected ? Color.mbAccent.opacity(0.35) : Color.mbSecondary.opacity(0.15), lineWidth: 0.7))
                             )
-                            .shadow(color: settingsManager.settings.appearanceMode == mode ? modeColor(for: mode).opacity(0.2) : .clear, radius: 10, x: 0, y: 5)
                         }
-                        .scaleEffect(settingsManager.settings.appearanceMode == mode ? 1.01 : 1.0)
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal)
@@ -2152,27 +1962,11 @@ struct AppearanceSettingsView: View {
         }
     }
 
-    private func modeColor(for mode: AppearanceMode) -> Color {
-        switch mode {
-        case .light: return .orange
-        case .dark: return .indigo
-        case .auto: return .blue
-        }
-    }
-
-    private func modeGradient(for mode: AppearanceMode) -> [Color] {
-        switch mode {
-        case .light: return [.yellow, .orange]
-        case .dark: return [.indigo, .purple]
-        case .auto: return [.blue, .cyan]
-        }
-    }
-
     private func modeDescription(for mode: AppearanceMode) -> String {
         switch mode {
-        case .light: return "Always use light mode"
-        case .dark: return "Always use dark mode"
-        case .auto: return "Match system settings"
+        case .light: return "always light"
+        case .dark:  return "always dark"
+        case .auto:  return "follow system"
         }
     }
 }
@@ -2319,497 +2113,199 @@ struct StateOfMindLoggingView: View {
     @State private var selectedKind: StateOfMindKind = .momentaryEmotion
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header with icon
-                    VStack(spacing: 16) {
-                        ZStack {
-                            // Glow effect
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        gradient: Gradient(colors: [
-                                            .pink.opacity(0.3),
-                                            .clear
-                                        ]),
-                                        center: .center,
-                                        startRadius: 0,
-                                        endRadius: 40
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
 
-                            Image(systemName: "heart.circle.fill")
-                                .font(.system(size: 56))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [.pink, .red],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: .pink.opacity(0.4), radius: 10, x: 0, y: 5)
-                        }
-
-                        Text("How are you feeling?")
-                            .font(.title)
-                            .fontWeight(.bold)
-
-                        if #available(iOS 18.0, *) {
-                            Text("Track your emotional wellbeing in the Health app")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        } else {
-                            Text("Track your emotional wellbeing")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 20)
-                    .padding(.horizontal)
-
-                    // Kind Selector (Daily Mood vs Momentary Emotion)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("TYPE")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
+            VStack(spacing: 0) {
+                // Header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("mood")
+                            .font(.custom("Georgia-Italic", size: 30))
+                            .foregroundColor(.mbPrimary)
+                        Text("how are you feeling?")
+                            .font(.system(size: 8, weight: .medium))
                             .tracking(2)
-                            .padding(.horizontal)
-
-                        HStack(spacing: 12) {
-                            ForEach(StateOfMindKind.allCases, id: \.self) { kind in
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        selectedKind = kind
-                                    }
-                                }) {
-                                    VStack(spacing: 10) {
-                                        Image(systemName: kind.icon)
-                                            .font(.title2)
-                                            .foregroundColor(selectedKind == kind ? .white : .primary)
-
-                                        Text(kind.displayName)
-                                            .font(.subheadline)
-                                            .fontWeight(selectedKind == kind ? .bold : .medium)
-                                            .foregroundColor(selectedKind == kind ? .white : .primary)
-
-                                        Text(kind.description)
-                                            .font(.caption2)
-                                            .foregroundColor(selectedKind == kind ? .white.opacity(0.85) : .secondary)
-                                            .multilineTextAlignment(.center)
-                                            .lineLimit(2)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .padding(.horizontal, 12)
-                                    .background(
-                                        ZStack {
-                                            if selectedKind == kind {
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [.pink, .red],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        )
-                                                    )
-
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .fill(.thinMaterial)
-                                                    .opacity(0.2)
-
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                Color.white.opacity(0.5),
-                                                                Color.clear,
-                                                                Color.white.opacity(0.2)
-                                                            ],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        )
-                                                    )
-                                                    .blendMode(.overlay)
-
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .strokeBorder(
-                                                        LinearGradient(
-                                                            colors: [.white.opacity(0.5), .pink.opacity(0.3)],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        ),
-                                                        lineWidth: 1.5
-                                                    )
-                                            } else {
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .fill(.ultraThinMaterial)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 20)
-                                                            .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
-                                                    )
-                                            }
-                                        }
-                                    )
-                                    .shadow(color: selectedKind == kind ? .pink.opacity(0.3) : .clear, radius: 10, x: 0, y: 5)
-                                }
-                                .scaleEffect(selectedKind == kind ? 1.02 : 1.0)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    
-                    // Emotions List
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("FEELING")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                            .tracking(2)
-                            .padding(.horizontal)
-
-                        VStack(spacing: 10) {
-                            ForEach(StateOfMindEmotion.allCases) { emotion in
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        if selectedEmotion == emotion {
-                                            selectedEmotion = nil
-                                        } else {
-                                            selectedEmotion = emotion
-                                            // Auto-set valence based on emotion category
-                                            switch emotion.category {
-                                            case .positive: valence = 0.7
-                                            case .balanced: valence = 0.2
-                                            case .negative: valence = -0.6
-                                            case .challenging: valence = -0.8
-                                            case .neutral: valence = 0.0
-                                            case .intense: valence = 0.5
-                                            }
-                                        }
-                                    }
-                                }) {
-                                    HStack(spacing: 16) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(
-                                                    RadialGradient(
-                                                        gradient: Gradient(colors: [
-                                                            emotion.category.color.opacity(selectedEmotion == emotion ? 0.3 : 0.15),
-                                                            .clear
-                                                        ]),
-                                                        center: .center,
-                                                        startRadius: 0,
-                                                        endRadius: 25
-                                                    )
-                                                )
-                                                .frame(width: 50, height: 50)
-
-                                            Text(emotion.emoji)
-                                                .font(.title)
-                                        }
-
-                                        Text(emotion.displayName)
-                                            .font(.body)
-                                            .fontWeight(selectedEmotion == emotion ? .semibold : .regular)
-                                            .foregroundColor(.primary)
-
-                                        Spacer()
-
-                                        if selectedEmotion == emotion {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundStyle(
-                                                    LinearGradient(
-                                                        colors: [.pink, .red],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
-                                                .font(.title3)
-                                        }
-                                    }
-                                    .padding(.vertical, 14)
-                                    .padding(.horizontal, 16)
-                                    .background(
-                                        ZStack {
-                                            if selectedEmotion == emotion {
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .fill(.ultraThinMaterial)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 16)
-                                                            .fill(
-                                                                LinearGradient(
-                                                                    colors: [
-                                                                        emotion.category.color.opacity(0.15),
-                                                                        .clear
-                                                                    ],
-                                                                    startPoint: .topLeading,
-                                                                    endPoint: .bottomTrailing
-                                                                )
-                                                            )
-                                                    )
-
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                Color.white.opacity(0.4),
-                                                                Color.clear
-                                                            ],
-                                                            startPoint: .top,
-                                                            endPoint: .bottom
-                                                        )
-                                                    )
-
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .strokeBorder(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                emotion.category.color.opacity(0.5),
-                                                                emotion.category.color.opacity(0.2)
-                                                            ],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        ),
-                                                        lineWidth: 1.5
-                                                    )
-                                            } else {
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .fill(.ultraThinMaterial)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 16)
-                                                            .strokeBorder(Color.secondary.opacity(0.15), lineWidth: 1)
-                                                    )
-                                            }
-                                        }
-                                    )
-                                    .shadow(color: selectedEmotion == emotion ? emotion.category.color.opacity(0.2) : .clear, radius: 8, x: 0, y: 4)
-                                }
-                                .scaleEffect(selectedEmotion == emotion ? 1.01 : 1.0)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    
-                    // Valence Slider
-                    if selectedEmotion != nil {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("INTENSITY")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.secondary)
-                                .tracking(2)
-
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Text("Very Unpleasant")
-                                        .font(.caption2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.secondary)
-
-                                    Spacer()
-
-                                    Text("Very Pleasant")
-                                        .font(.caption2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Slider(value: $valence, in: -1...1, step: 0.1)
-                                    .accentColor(valence >= 0 ? .green : .red)
-
-                                HStack {
-                                    Spacer()
-                                    Text("\(valence >= 0 ? "+" : "")\(String(format: "%.1f", valence))")
-                                        .font(.title3)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(valence >= 0 ? .green : .red)
-                                    Spacer()
-                                }
-                            }
-                            .padding(20)
-                            .background(
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(.ultraThinMaterial)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            (valence >= 0 ? Color.green : Color.red).opacity(0.1),
-                                                            .clear
-                                                        ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
-                                        )
-
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.4),
-                                                    Color.clear
-                                                ],
-                                                startPoint: .top,
-                                                endPoint: .bottom
-                                            )
-                                        )
-
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .strokeBorder(
-                                            (valence >= 0 ? Color.green : Color.red).opacity(0.3),
-                                            lineWidth: 1.5
-                                        )
-                                }
-                            )
-                        }
-                        .padding(.horizontal)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
                     }
 
-                    // Save Button
-                    if selectedEmotion != nil {
-                        Button(action: saveStateOfMind) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "heart.circle.fill")
-                                    .font(.title3)
-                                Text("Save Mood")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(
-                                ZStack {
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    .pink,
-                                                    .red
-                                                ],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
+                    Spacer()
 
-                                    Capsule()
-                                        .fill(.thinMaterial)
-                                        .opacity(0.2)
-
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.white.opacity(0.5),
-                                                    Color.clear,
-                                                    Color.white.opacity(0.2)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .blendMode(.overlay)
-
-                                    Capsule()
-                                        .strokeBorder(
-                                            LinearGradient(
-                                                colors: [.white.opacity(0.5), .pink.opacity(0.3)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 2
-                                        )
-                                }
-                            )
-                            .shadow(color: .pink.opacity(0.4), radius: 20, x: 0, y: 10)
-                        }
-                        .padding(.horizontal)
-                        .padding(.bottom, 20)
-                    }
-                }
-            }
-            .navigationTitle("Mood Log")
-            .navigationBarTitleDisplayMode(.large)
-            .navigationBarItems(
-                trailing: Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    ZStack {
+                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
                         Circle()
-                            .fill(.ultraThinMaterial)
+                            .stroke(Color.mbSecondary.opacity(0.20), lineWidth: 0.7)
+                            .frame(width: 34, height: 34)
                             .overlay(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [.white.opacity(0.3), .clear],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .light))
+                                    .foregroundColor(.mbSecondary)
                             )
-                            .frame(width: 32, height: 32)
-
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
                     }
                 }
-            )
-        }
-        .overlay(
-            // Success message overlay
-            VStack {
-                Spacer()
-                if showingSuccessMessage {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        if #available(iOS 18.0, *) {
-                            Text("\(selectedKind.displayName) logged to Health app")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
-                        } else {
-                            Text("\(selectedKind.displayName) logged successfully")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
+                .padding(.horizontal, 28)
+                .padding(.top, 48)
+                .padding(.bottom, 32)
+
+                // Kind selector
+                HStack(spacing: 0) {
+                    ForEach(StateOfMindKind.allCases, id: \.self) { kind in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedKind = kind
+                            }
+                        }) {
+                            VStack(spacing: 8) {
+                                Text(kind.displayName)
+                                    .font(.system(size: 9, weight: .medium))
+                                    .tracking(2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(selectedKind == kind ? .mbPrimary : .mbSecondary)
+                                Rectangle()
+                                    .fill(selectedKind == kind ? Color.mbAccent : Color.clear)
+                                    .frame(height: 0.5)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 28)
+
+                Rectangle()
+                    .fill(Color.mbSecondary.opacity(0.10))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 28)
+
+                // Emotions list
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(StateOfMindEmotion.allCases) { emotion in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if selectedEmotion == emotion {
+                                        selectedEmotion = nil
+                                    } else {
+                                        selectedEmotion = emotion
+                                        switch emotion.category {
+                                        case .positive: valence = 0.7
+                                        case .balanced: valence = 0.2
+                                        case .negative: valence = -0.6
+                                        case .challenging: valence = -0.8
+                                        case .neutral: valence = 0.0
+                                        case .intense: valence = 0.5
+                                        }
+                                    }
+                                }
+                            }) {
+                                HStack(spacing: 16) {
+                                    Text(emotion.emoji)
+                                        .font(.system(size: 22))
+                                        .frame(width: 32)
+                                    Text(emotion.displayName)
+                                        .font(.custom("Georgia", size: 16))
+                                        .foregroundColor(.mbPrimary)
+                                    Spacer()
+                                    if selectedEmotion == emotion {
+                                        Rectangle()
+                                            .fill(Color.mbAccent)
+                                            .frame(width: 2, height: 16)
+                                    }
+                                }
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 16)
+                                .background(
+                                    selectedEmotion == emotion
+                                        ? Color.mbSurface
+                                        : Color.clear
+                                )
+                            }
+                            .buttonStyle(.plain)
+
+                            Rectangle()
+                                .fill(Color.mbSecondary.opacity(0.07))
+                                .frame(height: 0.5)
+                                .padding(.horizontal, 28)
+                        }
+
+                        // Intensity slider
+                        if selectedEmotion != nil {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("intensity")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .tracking(2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(.mbSecondary)
+
+                                HStack {
+                                    Text("−")
+                                        .font(.system(size: 11, weight: .light))
+                                        .foregroundColor(.mbSecondary)
+                                    Slider(value: $valence, in: -1...1, step: 0.1)
+                                        .tint(Color.mbAccent)
+                                    Text("+")
+                                        .font(.system(size: 11, weight: .light))
+                                        .foregroundColor(.mbSecondary)
+                                }
+
+                                Text((valence >= 0 ? "+" : "") + String(format: "%.1f", valence))
+                                    .font(.custom("Georgia", size: 22))
+                                    .foregroundColor(.mbPrimary)
+                            }
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 28)
+                        }
+
+                        // Save button
+                        if selectedEmotion != nil {
+                            Button(action: saveStateOfMind) {
+                                Text("save mood")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .tracking(3)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(Color.mbAccent)
+                                    .padding(.horizontal, 32)
+                                    .padding(.vertical, 14)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .stroke(Color.mbAccent.opacity(0.45), lineWidth: 0.5)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.bottom, 60)
                         }
                     }
-                    .padding()
-                    .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.regularMaterial)
-                                .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-                            
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.4),
-                                            Color.clear,
-                                            Color.green.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: showingSuccessMessage)
-                    .padding(.bottom, 100)
                 }
             }
-        )
+
+            // Success toast
+            if showingSuccessMessage {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Rectangle()
+                            .fill(Color.mbAccent)
+                            .frame(width: 2, height: 16)
+                        Text("mood logged")
+                            .font(.system(size: 9, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbPrimary)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 16)
+                    .background(Color.mbSurface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 2)
+                            .stroke(Color.mbSecondary.opacity(0.15), lineWidth: 0.5)
+                    )
+                    .padding(.bottom, 40)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .animation(.easeInOut(duration: 0.35), value: showingSuccessMessage)
+            }
+        }
     }
     
     private func saveStateOfMind() {

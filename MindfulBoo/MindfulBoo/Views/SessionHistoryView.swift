@@ -1,610 +1,421 @@
 import SwiftUI
 
+// MARK: - Session History View
+
 struct SessionHistoryView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var healthStore: HealthKitManager
     @Environment(\.presentationMode) var presentationMode
     @State private var selectedSession: Session?
     @State private var showingDeleteAllAlert = false
-    
+
     var body: some View {
-        NavigationView {
-            VStack {
-                if sessionManager.sessions.isEmpty {
-                    EmptyHistoryView()
-                } else {
-                    List {
-                        // Summary section
-                        Section {
-                            SessionSummaryStatsView(sessions: sessionManager.sessions)
-                        }
-                        
-                        // Sessions list
-                        Section("Recent Sessions") {
-                            ForEach(sessionManager.sessions.reversed()) { session in
-                                SessionRowView(session: session)
-                                    .onTapGesture {
-                                        selectedSession = session
-                                    }
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("history")
+                            .font(.custom("Georgia-Italic", size: 30))
+                            .foregroundColor(.mbPrimary)
+                        Text("\(sessionManager.sessions.count) sessions")
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 16) {
+                        if !sessionManager.sessions.isEmpty {
+                            Button("delete all") {
+                                showingDeleteAllAlert = true
                             }
-                            .onDelete(perform: deleteSession)
+                            .font(.system(size: 9, weight: .medium))
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                            .foregroundColor(.red.opacity(0.55))
+                        }
+
+                        Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                            Circle()
+                                .stroke(Color.mbSecondary.opacity(0.20), lineWidth: 0.7)
+                                .frame(width: 34, height: 34)
+                                .overlay(
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 11, weight: .light))
+                                        .foregroundColor(.mbSecondary)
+                                )
                         }
                     }
-                    .listStyle(InsetGroupedListStyle())
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 48)
+                .padding(.bottom, 32)
+
+                if sessionManager.sessions.isEmpty {
+                    Spacer()
+                    EmptyHistoryView()
+                    Spacer()
+                } else {
+                    // Stats row
+                    SessionSummaryStatsView(sessions: sessionManager.sessions)
+                        .padding(.horizontal, 28)
+                        .padding(.bottom, 28)
+
+                    // Separator
+                    Rectangle()
+                        .fill(Color.mbSecondary.opacity(0.10))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 28)
+
+                    // Sessions list
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 0) {
+                            ForEach(sessionManager.sessions.reversed()) { session in
+                                SessionRowView(session: session)
+                                    .onTapGesture { selectedSession = session }
+
+                                Rectangle()
+                                    .fill(Color.mbSecondary.opacity(0.07))
+                                    .frame(height: 0.5)
+                                    .padding(.horizontal, 28)
+                            }
+                        }
+                        .padding(.bottom, 40)
+                    }
                 }
             }
-            .navigationTitle("Session History")
-            .navigationBarItems(
-                leading: sessionManager.sessions.isEmpty ? nil : Button("Delete All") {
-                    showingDeleteAllAlert = true
-                },
-                trailing: Button("Done") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-            .alert("Delete All Sessions", isPresented: $showingDeleteAllAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete All", role: .destructive) {
-                    sessionManager.deleteAllSessions()
-                }
-            } message: {
-                Text("Are you sure you want to delete all meditation sessions from MindfulBoo? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
+        }
+        .alert("Delete All Sessions", isPresented: $showingDeleteAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete All", role: .destructive) {
+                sessionManager.deleteAllSessions()
             }
+        } message: {
+            Text("This cannot be undone. Your mindful minutes remain safely in the Health app.")
         }
         .sheet(item: $selectedSession) { session in
             SessionDetailView(session: session)
         }
     }
-    
-    private func deleteSession(at offsets: IndexSet) {
-        let reversedSessions = sessionManager.sessions.reversed()
-        for index in offsets {
-            let sessionIndex = Array(reversedSessions).indices[index]
-            let session = Array(reversedSessions)[sessionIndex]
-            sessionManager.deleteSession(session)
-        }
-    }
+
 }
+
+// MARK: - Summary Stats
 
 struct SessionSummaryStatsView: View {
     let sessions: [Session]
-    
-    private var totalSessions: Int {
-        sessions.count
-    }
-    
+
     private var totalDuration: TimeInterval {
         sessions.reduce(0) { $0 + $1.effectiveDuration }
     }
-    
-    private var completedSessions: Int {
+    private var completedCount: Int {
         sessions.filter { $0.isCompleted }.count
     }
-    
-    private var averageSessionLength: TimeInterval {
+    private var averageDuration: TimeInterval {
         guard !sessions.isEmpty else { return 0 }
         return totalDuration / Double(sessions.count)
     }
-    
-    private var formattedTotalDuration: String {
-        let hours = Int(totalDuration) / 3600
-        let minutes = (Int(totalDuration) % 3600) / 60
-        
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
-        }
+    private var totalStr: String {
+        let h = Int(totalDuration) / 3600
+        let m = (Int(totalDuration) % 3600) / 60
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
     }
-    
-    private var formattedAverageLength: String {
-        let minutes = Int(averageSessionLength) / 60
-        return "\(minutes)m"
-    }
-    
+    private var avgStr: String { "\(Int(averageDuration) / 60)m" }
+
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "chart.bar.fill")
-                    .foregroundColor(.blue)
-                Text("Your Progress")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            
-            HStack(spacing: 20) {
-                StatsCard(
-                    title: "Total Time",
-                    value: formattedTotalDuration,
-                    icon: "clock.fill",
-                    color: .green
-                )
-                
-                StatsCard(
-                    title: "Sessions",
-                    value: "\(totalSessions)",
-                    icon: "leaf.fill",
-                    color: .blue
-                )
-                
-                StatsCard(
-                    title: "Average",
-                    value: formattedAverageLength,
-                    icon: "chart.line.uptrend.xyaxis",
-                    color: .orange
-                )
-            }
-            
-            if totalSessions > 0 {
-                HStack {
-                    Text("Completion Rate:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("\(Int(Double(completedSessions) / Double(totalSessions) * 100))%")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.green)
-                }
-            }
+        HStack(spacing: 0) {
+            statCell(value: totalStr, label: "total time")
+            thinDivider
+            statCell(value: "\(sessions.count)", label: "sessions")
+            thinDivider
+            statCell(value: avgStr, label: "average")
         }
-        .padding()
-        .background(
-            ZStack {
-                // Liquid Glass base
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.regularMaterial)
-                    .opacity(0.9)
-                
-                // Glass shine effect
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear,
-                                Color.white.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle border
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        )
+    }
+
+    private func statCell(value: String, label: String) -> some View {
+        VStack(spacing: 5) {
+            Text(value)
+                .font(.custom("Georgia", size: 22))
+                .foregroundColor(.mbPrimary)
+            Text(label)
+                .font(.system(size: 8, weight: .medium))
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundColor(.mbSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var thinDivider: some View {
+        Rectangle()
+            .fill(Color.mbSecondary.opacity(0.15))
+            .frame(width: 0.5, height: 36)
     }
 }
+
+// MARK: - Stats Card (kept for compatibility)
 
 struct StatsCard: View {
     let title: String
     let value: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            
+        VStack(spacing: 5) {
             Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-            
+                .font(.custom("Georgia", size: 20))
+                .foregroundColor(.mbPrimary)
             Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: 8, weight: .medium))
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundColor(.mbSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .padding(.horizontal, 8)
-        .background(
-            ZStack {
-                // Liquid Glass card background
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.thinMaterial)
-                    .opacity(0.8)
-                
-                // Specular highlight
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.4),
-                                Color.clear,
-                                color.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-        )
+        .background(Color.mbSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
+
+// MARK: - Empty History
 
 struct EmptyHistoryView: View {
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "leaf.circle")
-                .font(.system(size: 60))
-                .foregroundColor(.green)
-            
-            Text("No sessions yet")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Start your first meditation session to see your progress here. Your sessions will be saved locally and synced to the Health app.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            Image(systemName: "arrow.down.circle")
-                .font(.title)
-                .foregroundColor(.blue)
-                .padding(.top)
+            Circle()
+                .stroke(Color.mbSecondary.opacity(0.18), lineWidth: 0.7)
+                .frame(width: 68, height: 68)
+                .overlay(
+                    Image(systemName: "leaf")
+                        .font(.system(size: 24, weight: .ultraLight))
+                        .foregroundColor(Color.mbSecondary.opacity(0.45))
+                )
+
+            Text("no sessions yet")
+                .font(.custom("Georgia-Italic", size: 20))
+                .foregroundColor(Color.mbPrimary.opacity(0.45))
+
+            Text("begin your first meditation")
+                .font(.system(size: 8, weight: .medium))
+                .tracking(2)
+                .textCase(.uppercase)
+                .foregroundColor(Color.mbSecondary.opacity(0.55))
         }
+        .multilineTextAlignment(.center)
         .padding()
     }
 }
 
+// MARK: - Session Row
+
 struct SessionRowView: View {
     let session: Session
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.formattedDate)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    HStack {
-                        Image(systemName: "clock")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(session.formattedDuration)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    // Completion status
-                    HStack {
-                        Image(systemName: session.isCompleted ? "checkmark.circle.fill" : "clock.badge.exclamationmark")
-                            .foregroundColor(session.isCompleted ? .green : .orange)
-                            .font(.caption)
-                        Text("\(Int(session.completionPercentage * 100))%")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
-                    }
-                    
-                    // Health app sync indicator
-                    HStack {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(.green)
-                            .font(.caption2)
-                        Text("Health Sync")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(session.formattedDate)
+                    .font(.custom("Georgia", size: 16))
+                    .foregroundColor(.mbPrimary)
+                Text(session.formattedDuration)
+                    .font(.system(size: 8, weight: .medium))
+                    .tracking(1.5)
+                    .textCase(.uppercase)
+                    .foregroundColor(.mbSecondary)
             }
-            
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(height: 4)
-                        .cornerRadius(2)
-                    
-                    Rectangle()
-                        .fill(LinearGradient(
-                            gradient: Gradient(colors: [.green, .blue]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
-                        .frame(width: geometry.size.width * session.completionPercentage, height: 4)
-                        .cornerRadius(2)
-                }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 5) {
+                Text("\(Int(session.completionPercentage * 100))%")
+                    .font(.custom("Georgia", size: 16))
+                    .foregroundColor(session.isCompleted ? Color.mbAccent : .mbPrimary)
+                Text(session.isCompleted ? "complete" : "partial")
+                    .font(.system(size: 8, weight: .medium))
+                    .tracking(1.5)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color.mbSecondary.opacity(0.55))
             }
-            .frame(height: 4)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-            ZStack {
-                // Liquid Glass row background
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.9)
-                
-                // Glass reflection
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.clear,
-                                Color.white.opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle glass border
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        Color.white.opacity(0.1),
-                        lineWidth: 0.5
-                    )
-            }
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
-        )
+        .padding(.horizontal, 28)
+        .padding(.vertical, 18)
     }
 }
+
+// MARK: - Session Detail
 
 struct SessionDetailView: View {
     let session: Session
     @EnvironmentObject var sessionManager: SessionManager
     @Environment(\.presentationMode) var presentationMode
     @State private var showingDeleteAlert = false
-    
+
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Session Summary
-                    SessionSummaryCard(session: session)
-                    
-                    // Session insights
-                    SessionInsightsCard(session: session)
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("session")
+                            .font(.custom("Georgia-Italic", size: 30))
+                            .foregroundColor(.mbPrimary)
+                        Text(session.formattedDate)
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 16) {
+                        Button("delete") { showingDeleteAlert = true }
+                            .font(.system(size: 9, weight: .medium))
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                            .foregroundColor(.red.opacity(0.55))
+
+                        Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                            Circle()
+                                .stroke(Color.mbSecondary.opacity(0.20), lineWidth: 0.7)
+                                .frame(width: 34, height: 34)
+                                .overlay(
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 11, weight: .light))
+                                        .foregroundColor(.mbSecondary)
+                                )
+                        }
+                    }
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 48)
+                .padding(.bottom, 44)
+
+                // Detail rows
+                SessionSummaryCard(session: session)
+                    .padding(.horizontal, 28)
+
+                Spacer()
+
+                // Insight
+                if let insight = sessionInsight {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("insight")
+                            .font(.system(size: 8, weight: .medium))
+                            .tracking(2)
+                            .textCase(.uppercase)
+                            .foregroundColor(.mbSecondary)
+                        Text(insight)
+                            .font(.custom("Georgia-Italic", size: 16))
+                            .foregroundColor(Color.mbPrimary.opacity(0.65))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .lineSpacing(4)
+                    }
+                    .padding(24)
+                    .background(Color.mbSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.mbSecondary.opacity(0.10), lineWidth: 0.5)
+                    )
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 44)
+                }
             }
-            .navigationTitle("Session Details")
-            .navigationBarItems(
-                leading: Button("Delete") {
-                    showingDeleteAlert = true
-                }
-                .foregroundColor(.red),
-                trailing: Button("Done") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-            .alert("Delete Session", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    sessionManager.deleteSession(session)
-                    presentationMode.wrappedValue.dismiss()
-                }
-            } message: {
-                Text("Are you sure you want to delete this meditation session from MindfulBoo? This action cannot be undone. Your mindful minutes will remain safely stored in your Health app.")
+        }
+        .alert("Delete Session", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                sessionManager.deleteSession(session)
+                presentationMode.wrappedValue.dismiss()
             }
+        } message: {
+            Text("This cannot be undone. Your mindful minutes remain in the Health app.")
+        }
+    }
+
+    private var sessionInsight: String? {
+        let minutes = Int(session.effectiveDuration) / 60
+        if session.isCompleted && minutes >= 20 {
+            return "A deep practice. Extended sessions reveal layers of awareness that shorter ones only hint at."
+        } else if session.isCompleted && minutes >= 10 {
+            return "Consistency over intensity. This session is a stone laid on the path."
+        } else if session.isCompleted {
+            return "Even a few minutes of stillness can shift the entire quality of a day."
+        } else {
+            return "Every interrupted practice is still practice. Returning matters more than perfection."
         }
     }
 }
+
+// MARK: - Session Summary Card
 
 struct SessionSummaryCard: View {
     let session: Session
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Session Summary")
-                .font(.headline)
-            
-            VStack(spacing: 12) {
-                HStack {
-                    Label("Date", systemImage: "calendar")
-                    Spacer()
-                    Text(session.formattedDate)
-                        .foregroundColor(.secondary)
-                }
-                
-                HStack {
-                    Label("Duration", systemImage: "clock")
-                    Spacer()
-                    Text(session.formattedDuration)
-                        .foregroundColor(.secondary)
-                }
-                
-                HStack {
-                    Label("Completion", systemImage: "checkmark.circle")
-                    Spacer()
-                    Text("\(Int(session.completionPercentage * 100))%")
-                        .foregroundColor(session.completionPercentage >= 1.0 ? .green : .orange)
-                }
-                
-                HStack {
-                    Label("Health Sync", systemImage: "heart.fill")
-                    Spacer()
-                    Text("Synced")
-                        .foregroundColor(.green)
-                }
-            }
+        VStack(spacing: 0) {
+            detailRow(label: "duration",    value: session.formattedDuration)
+            separator
+            detailRow(label: "completion",  value: "\(Int(session.completionPercentage * 100))%",
+                      valueColor: session.isCompleted ? Color.mbAccent : .mbPrimary)
+            separator
+            detailRow(label: "status",      value: session.isCompleted ? "completed" : "ended early")
+            separator
+            detailRow(label: "health sync", value: "synced", valueColor: Color.mbAccent)
         }
-        .padding()
-        .background(
-            ZStack {
-                // Liquid Glass card
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.regularMaterial)
-                    .opacity(0.9)
-                
-                // Glass highlight
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear,
-                                Color.blue.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Glass border
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        )
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.mbSecondary.opacity(0.08))
+            .frame(height: 0.5)
+    }
+
+    private func detailRow(label: String, value: String, valueColor: Color = .mbPrimary) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundColor(.mbSecondary)
+            Spacer()
+            Text(value)
+                .font(.custom("Georgia", size: 16))
+                .foregroundColor(valueColor)
+        }
+        .padding(.vertical, 16)
     }
 }
 
+// MARK: - Session Insights Card (kept for compatibility)
+
 struct SessionInsightsCard: View {
     let session: Session
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Session Insights")
-                .font(.headline)
-            
-            VStack(spacing: 12) {
-                if session.isCompleted {
-                    InsightRow(
-                        icon: "checkmark.circle.fill",
-                        title: "Session Completed",
-                        description: "Great job finishing your full meditation session!",
-                        color: .green
-                    )
-                } else {
-                    InsightRow(
-                        icon: "clock.badge.exclamationmark",
-                        title: "Session Ended Early",
-                        description: "You completed \(Int(session.completionPercentage * 100))% of your planned session.",
-                        color: .orange
-                    )
-                }
-                
-                let durationMinutes = Int(session.effectiveDuration) / 60
-                if durationMinutes >= 20 {
-                    InsightRow(
-                        icon: "star.fill",
-                        title: "Extended Practice",
-                        description: "Longer sessions can deepen your meditation practice.",
-                        color: .blue
-                    )
-                } else if durationMinutes >= 10 {
-                    InsightRow(
-                        icon: "leaf.fill",
-                        title: "Good Practice",
-                        description: "Regular 10+ minute sessions build mindfulness habits.",
-                        color: .green
-                    )
-                } else {
-                    InsightRow(
-                        icon: "seedling",
-                        title: "Getting Started",
-                        description: "Even short sessions are beneficial for building consistency.",
-                        color: .mint
-                    )
-                }
-            }
-        }
-        .padding()
-        .background(
-            ZStack {
-                // Liquid Glass insights card
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.regularMaterial)
-                    .opacity(0.9)
-                
-                // Glass highlight with green tint
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear,
-                                Color.green.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Glass border
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.2),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        )
-    }
+    var body: some View { EmptyView() }
 }
+
+// MARK: - Insight Row (kept for compatibility)
 
 struct InsightRow: View {
     let icon: String
     let title: String
     let description: String
     let color: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .font(.title3)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-        }
-    }
+    var body: some View { EmptyView() }
 }
 
 #Preview {
     SessionHistoryView()
         .environmentObject(SessionManager())
         .environmentObject(HealthKitManager())
-} 
+}
