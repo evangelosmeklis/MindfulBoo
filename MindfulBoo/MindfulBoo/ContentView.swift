@@ -588,7 +588,6 @@ struct DurationPickerView: View {
                         }
                         .pickerStyle(.wheel)
                         .frame(width: 100, height: 180)
-                        .colorScheme(.dark)
                     }
 
                     Text("·")
@@ -613,7 +612,6 @@ struct DurationPickerView: View {
                         }
                         .pickerStyle(.wheel)
                         .frame(width: 100, height: 180)
-                        .colorScheme(.dark)
                         .disabled(selectedHours == 24)
                         .opacity(selectedHours == 24 ? 0.35 : 1.0)
                     }
