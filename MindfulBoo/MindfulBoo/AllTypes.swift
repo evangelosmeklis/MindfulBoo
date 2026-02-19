@@ -60,14 +60,86 @@ enum AppearanceMode: String, CaseIterable, Codable {
     }
 }
 
+// MARK: - Mindfulness Reminder Types
+
+enum MindfulnessInterval: Int, Codable, CaseIterable {
+    case every30min = 30
+    case every1hour = 60
+    case every2hours = 120
+    case every3hours = 180
+    case every4hours = 240
+
+    var displayName: String {
+        switch self {
+        case .every30min: return "every 30 min"
+        case .every1hour: return "every hour"
+        case .every2hours: return "every 2 hours"
+        case .every3hours: return "every 3 hours"
+        case .every4hours: return "every 4 hours"
+        }
+    }
+}
+
+enum MindfulnessMode: String, Codable, CaseIterable {
+    case window = "window"
+    case custom = "custom"
+
+    var displayName: String {
+        switch self {
+        case .window: return "time window"
+        case .custom: return "custom times"
+        }
+    }
+}
+
+struct MindfulnessCustomTime: Codable, Identifiable, Equatable {
+    let id: UUID
+    var time: Date
+
+    var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: time)
+    }
+
+    init(id: UUID = UUID(), time: Date) {
+        self.id = id
+        self.time = time
+    }
+}
+
+struct MindfulnessReminderSettings: Codable {
+    var isEnabled: Bool = false
+    var mode: MindfulnessMode = .window
+    var windowStart: Date
+    var windowEnd: Date
+    var interval: MindfulnessInterval = .every1hour
+    var customTimes: [MindfulnessCustomTime] = []
+
+    init() {
+        let calendar = Calendar.current
+        var startComponents = DateComponents()
+        startComponents.hour = 9
+        startComponents.minute = 0
+        windowStart = calendar.date(from: startComponents) ?? Date()
+
+        var endComponents = DateComponents()
+        endComponents.hour = 21
+        endComponents.minute = 0
+        windowEnd = calendar.date(from: endComponents) ?? Date()
+    }
+}
+
 struct AppSettings: Codable {
     var sessionNotifications: SessionNotificationSettings
     var dailyReminders: DailyReminderSettings
+    var mindfulnessReminders: MindfulnessReminderSettings
     var appearanceMode: AppearanceMode = .auto
 
     static let `default` = AppSettings(
         sessionNotifications: SessionNotificationSettings(),
         dailyReminders: DailyReminderSettings(),
+        mindfulnessReminders: MindfulnessReminderSettings(),
         appearanceMode: .auto
     )
 }
@@ -169,6 +241,29 @@ class SettingsManager: ObservableObject {
     private let userDefaults = UserDefaults.standard
     private let settingsKey = "MindfulBooSettings"
     
+    private let mindfulnessMessages: [String] = [
+        "pause. take a slow breath. notice where you are.",
+        "soften your shoulders and unclench your jaw.",
+        "what can you feel right now? just notice.",
+        "let your next exhale be a little longer.",
+        "look up from your screen for a moment.",
+        "notice three things you can hear right now.",
+        "feel your feet on the ground beneath you.",
+        "take one conscious breath before you continue.",
+        "are you rushing? you can slow down.",
+        "notice the temperature of the air around you.",
+        "release any tension you're holding in your face.",
+        "you are here. this moment is enough.",
+        "check in with your body. what does it need?",
+        "let go of the last thing. this is now.",
+        "breathe in slowly. breathe out completely.",
+        "where is your attention right now?",
+        "soften your gaze for just one breath.",
+        "nothing to do for this one breath.",
+        "notice the weight of your body where you sit.",
+        "this is a moment of rest. let it be."
+    ]
+
     init() {
         if let data = userDefaults.data(forKey: settingsKey),
            let decodedSettings = try? JSONDecoder().decode(AppSettings.self, from: data) {
@@ -176,6 +271,7 @@ class SettingsManager: ObservableObject {
         } else {
             self.settings = AppSettings.default
         }
+        rescheduleMindfulnessNotifications()
     }
     
     func saveSettings() {
@@ -341,6 +437,122 @@ class SettingsManager: ObservableObject {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
         print("Cancelled daily reminder for \(reminder.formattedTime)")
     }
+
+    // MARK: - Mindfulness Reminder Settings
+
+    func toggleMindfulnessReminders() {
+        settings.mindfulnessReminders.isEnabled.toggle()
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func updateMindfulnessMode(_ mode: MindfulnessMode) {
+        settings.mindfulnessReminders.mode = mode
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func updateMindfulnessWindowStart(_ date: Date) {
+        settings.mindfulnessReminders.windowStart = date
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func updateMindfulnessWindowEnd(_ date: Date) {
+        settings.mindfulnessReminders.windowEnd = date
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func updateMindfulnessInterval(_ interval: MindfulnessInterval) {
+        settings.mindfulnessReminders.interval = interval
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func addMindfulnessCustomTime(_ time: Date) {
+        settings.mindfulnessReminders.customTimes.append(MindfulnessCustomTime(time: time))
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    func removeMindfulnessCustomTime(at index: Int) {
+        guard index < settings.mindfulnessReminders.customTimes.count else { return }
+        settings.mindfulnessReminders.customTimes.remove(at: index)
+        saveSettings()
+        rescheduleMindfulnessNotifications()
+    }
+
+    private func rescheduleMindfulnessNotifications() {
+        cancelMindfulnessNotifications()
+
+        guard settings.mindfulnessReminders.isEnabled else { return }
+
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] notifSettings in
+            guard let self = self else { return }
+            guard notifSettings.authorizationStatus == .authorized ||
+                  notifSettings.authorizationStatus == .provisional else { return }
+
+            let remSettings = self.settings.mindfulnessReminders
+            var slots: [DateComponents] = []
+
+            if remSettings.mode == .window {
+                let calendar = Calendar.current
+                let startComps = calendar.dateComponents([.hour, .minute], from: remSettings.windowStart)
+                let endComps = calendar.dateComponents([.hour, .minute], from: remSettings.windowEnd)
+                let startMinutes = (startComps.hour ?? 9) * 60 + (startComps.minute ?? 0)
+                let endMinutes = (endComps.hour ?? 21) * 60 + (endComps.minute ?? 0)
+                let step = remSettings.interval.rawValue
+                var current = startMinutes
+                while current <= endMinutes {
+                    var comps = DateComponents()
+                    comps.hour = current / 60
+                    comps.minute = current % 60
+                    slots.append(comps)
+                    current += step
+                }
+            } else {
+                for customTime in remSettings.customTimes {
+                    let comps = Calendar.current.dateComponents([.hour, .minute], from: customTime.time)
+                    slots.append(comps)
+                }
+            }
+
+            for (index, slot) in slots.enumerated() {
+                let message = self.mindfulnessMessages[index % self.mindfulnessMessages.count]
+                let content = UNMutableNotificationContent()
+                content.title = "mindful moment"
+                content.body = message
+                content.sound = UNNotificationSound.default
+
+                let trigger = UNCalendarNotificationTrigger(dateMatching: slot, repeats: true)
+                let request = UNNotificationRequest(
+                    identifier: "mindfulness_\(index)_\(slot.hour ?? 0)h\(slot.minute ?? 0)m",
+                    content: content,
+                    trigger: trigger
+                )
+                UNUserNotificationCenter.current().add(request) { error in
+                    if let error = error {
+                        print("Failed to schedule mindfulness notification: \(error)")
+                    } else {
+                        print("Scheduled mindfulness notification at \(slot.hour ?? 0):\(String(format: "%02d", slot.minute ?? 0))")
+                    }
+                }
+            }
+        }
+    }
+
+    private func cancelMindfulnessNotifications() {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let ids = requests
+                .filter { $0.identifier.hasPrefix("mindfulness_") }
+                .map { $0.identifier }
+            if !ids.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+                print("Cancelled \(ids.count) mindfulness notifications")
+            }
+        }
+    }
 }
 
 // MARK: - SessionManager
@@ -480,8 +692,7 @@ class SessionManager: NSObject, ObservableObject {
         // End Live Activity
         endLiveActivity()
 
-        // DON'T cancel notification - let it fire as confirmation
-        // User will get both in-app sound and notification for reliability
+        cancelSessionNotification()
 
         // Complete current session
         completeAndSaveSession()
@@ -574,7 +785,8 @@ class SessionManager: NSObject, ObservableObject {
         if syncedTimeRemaining <= 0 && isSessionActive {
             print("🔄 Session completed while app was in background - completing session safely")
             completeAndSaveSession()
-            
+            cancelSessionNotification()
+
             // Update UI state
             DispatchQueue.main.async {
                 self.isSessionActive = false
@@ -1285,7 +1497,7 @@ struct SettingsView: View {
 
                 // Minimal tab row
                 HStack(spacing: 0) {
-                    ForEach(Array(["session", "reminders", "appearance"].enumerated()), id: \.offset) { i, label in
+                    ForEach(Array(["session", "reminders", "mindful", "appearance"].enumerated()), id: \.offset) { i, label in
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.2)) { selectedTab = i }
                         }) {
@@ -1320,8 +1532,10 @@ struct SettingsView: View {
                         .tag(0)
                     DailyReminderSettingsView()
                         .tag(1)
-                    AppearanceSettingsView()
+                    MindfulnessSettingsView()
                         .tag(2)
+                    AppearanceSettingsView()
+                        .tag(3)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
@@ -1332,6 +1546,7 @@ struct SettingsView: View {
         switch selectedTab {
         case 0: return "notifications"
         case 1: return "daily reminders"
+        case 2: return "mindfulness reminders"
         default: return "appearance"
         }
     }
@@ -1974,6 +2189,367 @@ struct AppearanceSettingsView: View {
 #Preview {
     SettingsView()
         .environmentObject(SettingsManager())
+}
+
+// MARK: - Mindfulness Settings
+
+struct MindfulnessSettingsView: View {
+    @EnvironmentObject var settingsManager: SettingsManager
+    @State private var selectedMode: MindfulnessMode = .window
+    @State private var showingAddTime = false
+    @State private var newCustomTime = Date()
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Section header
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("mindful")
+                        .font(.system(size: 8, weight: .medium))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(.mbSecondary)
+                    Text("throughout the day")
+                        .font(.custom("Georgia-Italic", size: 22))
+                        .foregroundColor(.mbPrimary)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
+                Text("gentle nudges to pause and be present — not to meditate.")
+                    .font(.system(size: 10))
+                    .tracking(0.3)
+                    .foregroundColor(.mbSecondary)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 24)
+
+                // Master toggle
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("enable reminders")
+                            .font(.custom("Georgia", size: 15))
+                            .foregroundColor(.mbPrimary)
+                        Text("quiet prompts to come back to now")
+                            .font(.system(size: 9))
+                            .tracking(0.5)
+                            .foregroundColor(.mbSecondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { settingsManager.settings.mindfulnessReminders.isEnabled },
+                        set: { _ in settingsManager.toggleMindfulnessReminders() }
+                    ))
+                    .tint(Color.mbAccent)
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 18)
+                .background(Color.mbSurface)
+                .overlay(
+                    Rectangle()
+                        .stroke(Color.mbSecondary.opacity(0.10), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+
+                if settingsManager.settings.mindfulnessReminders.isEnabled {
+                    // Mode selector
+                    HStack(spacing: 0) {
+                        ForEach(MindfulnessMode.allCases, id: \.self) { mode in
+                            let isSelected = settingsManager.settings.mindfulnessReminders.mode == mode
+                            Button(action: {
+                                settingsManager.updateMindfulnessMode(mode)
+                            }) {
+                                VStack(spacing: 6) {
+                                    Text(mode.displayName)
+                                        .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                                        .tracking(1.5)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(isSelected ? Color.mbPrimary : Color.mbSecondary)
+                                    Rectangle()
+                                        .fill(isSelected ? Color.mbAccent : Color.clear)
+                                        .frame(height: 0.7)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 4)
+
+                    Rectangle()
+                        .fill(Color.mbSecondary.opacity(0.10))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 28)
+                        .padding(.bottom, 20)
+
+                    if settingsManager.settings.mindfulnessReminders.mode == .window {
+                        // Window mode
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("window")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.horizontal, 28)
+
+                            // From row
+                            HStack {
+                                Text("from")
+                                    .font(.custom("Georgia", size: 15))
+                                    .foregroundColor(.mbPrimary)
+                                Spacer()
+                                DatePicker(
+                                    "",
+                                    selection: Binding(
+                                        get: { settingsManager.settings.mindfulnessReminders.windowStart },
+                                        set: { settingsManager.updateMindfulnessWindowStart($0) }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .labelsHidden()
+                                .tint(Color.mbAccent)
+                            }
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(Color.mbSurface)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(Color.mbSecondary.opacity(0.10), lineWidth: 0.5)
+                            )
+                            .padding(.horizontal, 28)
+
+                            // Until row
+                            HStack {
+                                Text("until")
+                                    .font(.custom("Georgia", size: 15))
+                                    .foregroundColor(.mbPrimary)
+                                Spacer()
+                                DatePicker(
+                                    "",
+                                    selection: Binding(
+                                        get: { settingsManager.settings.mindfulnessReminders.windowEnd },
+                                        set: { settingsManager.updateMindfulnessWindowEnd($0) }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .labelsHidden()
+                                .tint(Color.mbAccent)
+                            }
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(Color.mbSurface)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(Color.mbSecondary.opacity(0.10), lineWidth: 0.5)
+                            )
+                            .padding(.horizontal, 28)
+                        }
+                        .padding(.bottom, 24)
+
+                        // Frequency
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("frequency")
+                                .font(.system(size: 8, weight: .medium))
+                                .tracking(2)
+                                .textCase(.uppercase)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.horizontal, 28)
+
+                            VStack(spacing: 8) {
+                                ForEach(MindfulnessInterval.allCases, id: \.self) { interval in
+                                    let isSelected = settingsManager.settings.mindfulnessReminders.interval == interval
+                                    Button(action: {
+                                        settingsManager.updateMindfulnessInterval(interval)
+                                    }) {
+                                        HStack {
+                                            Text(interval.displayName)
+                                                .font(.custom("Georgia", size: 15))
+                                                .foregroundColor(.mbPrimary)
+                                            Spacer()
+                                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                                .font(.system(size: 16, weight: .light))
+                                                .foregroundColor(isSelected ? Color.mbAccent : Color.mbSecondary.opacity(0.45))
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(isSelected ? Color.mbSurface : Color.clear)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .stroke(
+                                                            isSelected ? Color.mbAccent.opacity(0.35) : Color.mbSecondary.opacity(0.15),
+                                                            lineWidth: 0.7
+                                                        )
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 28)
+                                }
+                            }
+                        }
+                        .padding(.bottom, 20)
+
+                        // Preview count
+                        let count = windowReminderCount
+                        Text("\(count) reminder\(count == 1 ? "" : "s") per day")
+                            .font(.system(size: 9))
+                            .tracking(0.5)
+                            .foregroundColor(.mbSecondary)
+                            .padding(.horizontal, 28)
+                            .padding(.bottom, 24)
+
+                    } else {
+                        // Custom times mode
+                        VStack(alignment: .leading, spacing: 0) {
+                            if !settingsManager.settings.mindfulnessReminders.customTimes.isEmpty {
+                                Text("times")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .tracking(2)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(.mbSecondary)
+                                    .padding(.horizontal, 28)
+                                    .padding(.bottom, 12)
+
+                                ForEach(Array(settingsManager.settings.mindfulnessReminders.customTimes.enumerated()), id: \.element.id) { index, customTime in
+                                    HStack {
+                                        Text(customTime.formattedTime)
+                                            .font(.custom("Georgia", size: 16))
+                                            .foregroundColor(.mbPrimary)
+                                        Spacer()
+                                        Button(action: {
+                                            settingsManager.removeMindfulnessCustomTime(at: index)
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 13, weight: .light))
+                                                .foregroundColor(.red.opacity(0.50))
+                                        }
+                                    }
+                                    .padding(.horizontal, 28)
+                                    .padding(.vertical, 14)
+
+                                    Rectangle()
+                                        .fill(Color.mbSecondary.opacity(0.07))
+                                        .frame(height: 0.5)
+                                        .padding(.horizontal, 28)
+                                }
+                                .padding(.bottom, 4)
+                            }
+
+                            Button(action: { showingAddTime = true }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10, weight: .light))
+                                        .foregroundColor(Color.mbAccent)
+                                    Text("add time")
+                                        .font(.system(size: 9, weight: .medium))
+                                        .tracking(2)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(Color.mbAccent)
+                                }
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 16)
+                            }
+                            .buttonStyle(.plain)
+
+                            let count = settingsManager.settings.mindfulnessReminders.customTimes.count
+                            Text("\(count) reminder\(count == 1 ? "" : "s") per day")
+                                .font(.system(size: 9))
+                                .tracking(0.5)
+                                .foregroundColor(.mbSecondary)
+                                .padding(.horizontal, 28)
+                                .padding(.bottom, 24)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 60)
+            }
+        }
+        .sheet(isPresented: $showingAddTime) {
+            AddMindfulnessTimeView(time: $newCustomTime) {
+                settingsManager.addMindfulnessCustomTime(newCustomTime)
+                showingAddTime = false
+                newCustomTime = Date()
+            }
+        }
+    }
+
+    private var windowReminderCount: Int {
+        let remSettings = settingsManager.settings.mindfulnessReminders
+        let calendar = Calendar.current
+        let startComps = calendar.dateComponents([.hour, .minute], from: remSettings.windowStart)
+        let endComps = calendar.dateComponents([.hour, .minute], from: remSettings.windowEnd)
+        let startMinutes = (startComps.hour ?? 9) * 60 + (startComps.minute ?? 0)
+        let endMinutes = (endComps.hour ?? 21) * 60 + (endComps.minute ?? 0)
+        let step = remSettings.interval.rawValue
+        guard step > 0, endMinutes >= startMinutes else { return 0 }
+        return (endMinutes - startMinutes) / step + 1
+    }
+}
+
+struct AddMindfulnessTimeView: View {
+    @Binding var time: Date
+    let onSave: () -> Void
+    @Environment(\.presentationMode) var presentationMode
+
+    var body: some View {
+        ZStack {
+            Color.mbBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button("cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(.mbSecondary)
+
+                    Spacer()
+
+                    Text("add time")
+                        .font(.custom("Georgia-Italic", size: 18))
+                        .foregroundColor(.mbPrimary)
+
+                    Spacer()
+
+                    Button("add") {
+                        onSave()
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .font(.system(size: 9, weight: .medium))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundColor(Color.mbAccent)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+                .padding(.bottom, 32)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("time")
+                        .font(.system(size: 8, weight: .medium))
+                        .tracking(2)
+                        .textCase(.uppercase)
+                        .foregroundColor(.mbSecondary)
+
+                    DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(WheelDatePickerStyle())
+                        .labelsHidden()
+                        .tint(Color.mbAccent)
+                }
+                .padding(.horizontal, 28)
+
+                Spacer()
+            }
+        }
+    }
 }
 
 // MARK: - State of Mind Models
